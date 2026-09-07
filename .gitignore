@@ -45,10 +45,11 @@ htmlcov/
 
 # Runtime & Generated Artifacts
 Backend/artifacts/
-Backend/data/*.db
-Backend/data/*.sqlite
-Backend/data/*.sqlite3
+Backend/data/
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 *.log
