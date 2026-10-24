@@ -162,3 +162,32 @@ def list_corpus_documents():
 def search_literature(q: str = Query(..., min_length=2), top_k: int = 5):
     results = hybrid_retriever.search(query=q, top_k=top_k)
     return {"query": q, "count": len(results), "results": results}
+
+# --- Core Prototype Benchmark Endpoints ---
+from app.services.midsem_qa import APPROVED_MIDSEM_QUESTIONS, validate_and_match_question
+
+@router.get("/midsem/questions")
+def get_midsem_questions():
+    """
+    Returns the 4 verified benchmark research questions for the core prototype.
+    """
+    return {
+        "milestone": "Core Evidence Prototype",
+        "description": "ResearchPilot is currently configured with 4 verified foundational research questions.",
+        "supported_count": len(APPROVED_MIDSEM_QUESTIONS),
+        "questions": APPROVED_MIDSEM_QUESTIONS
+    }
+
+@router.post("/midsem/validate")
+def validate_midsem_query(payload: Dict[str, str]):
+    """
+    Validates if an arbitrary query is supported under the current prototype scope.
+    """
+    q = payload.get("question", "")
+    is_supported, matched, msg = validate_and_match_question(q)
+    return {
+        "is_supported": is_supported,
+        "matched_question": matched,
+        "message": msg
+    }
+

@@ -26,13 +26,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   evidenceCount,
   hasReport,
 }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Compass },
-    { id: 'workspace', label: 'Research Workspace', icon: GitBranch },
-    { id: 'evidence', label: 'Evidence Explorer', icon: Search, count: evidenceCount },
-    { id: 'experiment', label: 'Experiment Lab', icon: FlaskConical },
-    { id: 'evaluation', label: 'Evaluation & Ablations', icon: BarChart3 },
-    { id: 'report', label: 'Final Report', icon: FileText, highlight: hasReport },
+  const builtItems = [
+    { id: 'core', label: 'Interactive Core Demo', icon: Zap, badge: 'Live Prototype' },
+  ];
+
+  const plannedItems = [
+    { id: 'dashboard', label: 'Dashboard & FSM', icon: Compass, badge: 'Planned' },
+    { id: 'workspace', label: 'Research Workspace', icon: GitBranch, badge: 'Planned' },
+    { id: 'evidence', label: 'Evidence Explorer', icon: Search, badge: 'Planned', count: evidenceCount },
+    { id: 'experiment', label: 'Experiment Lab', icon: FlaskConical, badge: 'Planned' },
+    { id: 'evaluation', label: 'Evaluation Hub', icon: BarChart3, badge: 'Planned' },
+    { id: 'report', label: 'Final Report', icon: FileText, badge: 'Planned', highlight: hasReport },
   ];
 
   return (
@@ -50,7 +54,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
+        {/* Currently Built Section */}
+        <div style={{ padding: '4px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent-emerald)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          ⚡ Currently Built
+        </div>
+        {builtItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <div
+              key={item.id}
+              className={`nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveTab(item.id)}
+              style={isActive ? { background: '#ecfdf5', borderColor: '#a7f3d0', color: '#065f46' } : {}}
+            >
+              <Icon size={18} color={isActive ? 'var(--accent-emerald)' : 'var(--text-muted)'} />
+              <span style={{ flex: 1, fontWeight: isActive ? 700 : 500 }}>{item.label}</span>
+              {item.badge && (
+                <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '1px 7px' }}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Planned Modules Section */}
+        <div style={{ padding: '16px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          🚧 Planned Modules (Yet to be Built)
+        </div>
+        {plannedItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (
@@ -61,20 +94,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Icon size={18} color={isActive ? 'var(--accent-primary)' : 'var(--text-muted)'} />
               <span style={{ flex: 1 }}>{item.label}</span>
-              {item.count !== undefined && item.count > 0 && (
-                <span className="badge badge-cyan" style={{ fontSize: '0.7rem', padding: '1px 7px' }}>
-                  {item.count}
-                </span>
-              )}
-              {item.highlight && (
-                <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '2px 7px' }}>
-                  Ready
-                </span>
-              )}
+              <span className="badge badge-slate" style={{ fontSize: '0.65rem', padding: '1px 6px', opacity: 0.85 }}>
+                {item.badge}
+              </span>
             </div>
           );
         })}
       </nav>
+
 
       <div className="sidebar-footer">
         <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>

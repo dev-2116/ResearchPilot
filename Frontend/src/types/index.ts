@@ -164,3 +164,56 @@ export interface BenchmarkResult {
   }>;
   summary: string;
 }
+
+export interface MidSemQuestion {
+  id: string;
+  short_title: string;
+  category: string;
+  question: string;
+  keywords: string[];
+  direct_answer: string;
+  key_claims: string[];
+  cited_documents: Array<{
+    doc_id: string;
+    title: string;
+    authors: string;
+    identifier: string;
+    venue: string;
+    passage: string;
+  }>;
+}
+
+export interface MidSemQuestionsResponse {
+  milestone: string;
+  description: string;
+  supported_count: number;
+  questions: MidSemQuestion[];
+}
+
+export interface MidSemValidationResult {
+  is_supported: boolean;
+  matched_question?: MidSemQuestion;
+  message: string;
+}
+
+// ── Auth Types ────────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  access_token: string;
+}
+
+export interface RegisterPayload {
+  full_name: string;
+  email: string;
+  password: string;
+  role?: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}

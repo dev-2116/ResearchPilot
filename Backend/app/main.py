@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.endpoints import router as api_router
+from app.api.auth import router as auth_router
 from app.core.config import ARTIFACTS_DIR, settings
 from app.db.database import init_db
 
@@ -28,8 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router
+# Include API routers
 app.include_router(api_router, prefix=settings.API_PREFIX)
+app.include_router(auth_router, prefix=settings.API_PREFIX)
 
 @app.get("/health")
 def health_check():

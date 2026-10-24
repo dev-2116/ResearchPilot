@@ -1,9 +1,12 @@
 import {
+  AuthUser,
   BenchmarkCase,
   BenchmarkResult,
   Claim,
   Experiment,
   FinalReport,
+  LoginPayload,
+  RegisterPayload,
   ResearchTask,
   Run,
 } from '../types';
@@ -113,6 +116,68 @@ export const api = {
   async searchCorpus(query: string): Promise<any> {
     const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
     if (!res.ok) throw new Error(`Failed to search corpus: ${res.statusText}`);
+    return res.json();
+  },
+
+  // Core Prototype
+  async getMidSemQuestions(): Promise<{
+    milestone: string;
+    description: string;
+    supported_count: number;
+    questions: any[];
+  }> {
+    const res = await fetch(`${API_BASE}/midsem/questions`);
+    if (!res.ok) throw new Error(`Failed to fetch midsem questions: ${res.statusText}`);
+    return res.json();
+  },
+
+  async validateMidSemQuery(question: string): Promise<{
+    is_supported: boolean;
+    matched_question?: any;
+    message: string;
+  }> {
+    const res = await fetch(`${API_BASE}/midsem/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question }),
+    });
+    if (!res.ok) throw new Error(`Failed to validate query: ${res.statusText}`);
+    return res.json();
+  },
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  async register(payload: RegisterPayload): Promise<AuthUser> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Registration failed');
+    }
+    return res.json();
+  },
+
+  async login(payload: LoginPayload): Promise<AuthUser> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Login failed');
+    }
+    return res.json();
+  },
+
+  async getMe(token: string): Promise<AuthUser> {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('Not authenticated');
     return res.json();
   },
 };

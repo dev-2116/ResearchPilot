@@ -12,7 +12,7 @@ DB_PATH = DATA_DIR / "researchpilot.db"
 _lock = threading.Lock()
 
 def get_connection():
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -21,6 +21,19 @@ def init_db():
         conn = get_connection()
         cursor = conn.cursor()
         
+        # Users Table (Authentication)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            full_name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            hashed_password TEXT NOT NULL,
+            role TEXT DEFAULT 'researcher',
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT NOT NULL
+        )
+        """)
+
         # Tasks Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS research_tasks (
@@ -556,3 +569,32 @@ class DB:
             "provenance_hash": r["provenance_hash"],
             "generated_at": r["generated_at"]
         }
+
+    # ── User / Auth helpers ────────────────────────────────────────────────────
+
+    @staticmethod
+    def create_user(user_id: str, full_name: str, email: str, hashed_password: str, role: str = "researcher") -> Dict[str, Any]:
+        now = datetime.utcnow().isoformat()
+        with _lock:
+            conn = get_connection()
+            conn.execute(
+                "INSERT INTO users (id, full_name, email, hashed_password, role, is_active, created_at) VALUES (?,?,?,?,?,1,?)",
+                (user_id, full_name, email, hashed_password, role, now)
+            )
+            conn.commit()
+            conn.close()
+        return {"id": user_id, "full_name": full_name, "email": email, "role": role, "created_at": now}
+
+    @staticmethod
+    def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM users WHERE email = ?", (email.lower(),)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @staticmethod
+    def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
+        conn = get_connection()
+        row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        conn.close()
+        return dict(row) if row else None

@@ -136,3 +136,30 @@ class BenchmarkResultResponse(BaseModel):
     metrics: Dict[str, Dict[str, float]]  # model -> metric -> value
     case_results: List[Dict[str, Any]]
     summary: str
+
+# ── Authentication Schemas ─────────────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    full_name: str
+    email: str
+    password: str
+    role: Optional[str] = "researcher"
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    full_name: str
+    email: str
+    role: str
+
+class UserResponse(BaseModel):
+    id: str
+    full_name: str
+    email: str
+    role: str
+    created_at: str

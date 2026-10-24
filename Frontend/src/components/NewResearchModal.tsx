@@ -11,22 +11,28 @@ interface NewResearchModalProps {
 
 const TEMPLATES = [
   {
-    title: 'Hybrid Retrieval vs Dense Embeddings',
+    title: 'Q1: Hybrid BM25 vs Dense Embeddings',
     question: 'How does hybrid BM25 and dense retrieval compare against dense-only embeddings in scientific domain QA?',
     domain: 'Artificial Intelligence & RAG',
     constraints: 'Evaluate recall and latency on technical terminology'
   },
   {
-    title: 'Claim Provenance & Hallucination Mitigation',
-    question: 'Can claim-to-source provenance reduce unsupported claims and citation hallucinations in AI research assistance?',
+    title: 'Q2: Claim Verification & Hallucination Mitigation',
+    question: 'How does claim-level evidence verification reduce hallucinations in AI research assistance?',
     domain: 'Agentic Fact Verification',
     constraints: 'Include NLI support scoring and reference matching'
   },
   {
-    title: 'Experiment Reproducibility Manifests',
-    question: 'What execution parameters and manifest specifications are required to guarantee reproducible ML experiments?',
+    title: 'Q3: ML Experiment Reproducibility Manifests',
+    question: 'What minimum execution parameters must be recorded in an execution manifest to guarantee ML reproducibility?',
     domain: 'Machine Learning Reproducibility',
     constraints: 'Record seeds, hardware specs, and metric hashes'
+  },
+  {
+    title: 'Q4: State-Machine Orchestration vs Recursive Loops',
+    question: 'Why is state-machine orchestration preferred over unconstrained recursive loops in research agents?',
+    domain: 'Agent Architecture & Control',
+    constraints: 'Bound agent behavior and step policies'
   }
 ];
 

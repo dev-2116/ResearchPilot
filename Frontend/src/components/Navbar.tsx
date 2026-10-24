@@ -1,14 +1,17 @@
 import React from 'react';
-import { Activity, ShieldCheck, Sparkles, Terminal, Layers } from 'lucide-react';
+import { Activity, LogOut, ShieldCheck, Sparkles, Terminal, User } from 'lucide-react';
 import { Run } from '../types';
+import { AuthUser } from '../types';
 
 interface NavbarProps {
   activeRun: Run | null;
   onOpenNewModal: () => void;
   apiConnected: boolean;
+  user?: AuthUser | null;
+  onLogout?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiConnected }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiConnected, user, onLogout }) => {
   return (
     <header className="top-header no-print">
       <div className="header-title">
@@ -42,6 +45,27 @@ export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiCo
             <span style={{ fontWeight: 500 }}>Subprocess Sandbox</span>
           </div>
         </div>
+
+        {user && (
+          <div className="navbar-user-area">
+            <div className="navbar-user-avatar">
+              <User size={15} />
+            </div>
+            <div className="navbar-user-info">
+              <span className="navbar-user-name">{user.full_name}</span>
+              <span className="navbar-user-role">{user.role}</span>
+            </div>
+            <button
+              id="logout-btn"
+              className="navbar-logout-btn"
+              onClick={onLogout}
+              title="Sign out"
+            >
+              <LogOut size={15} />
+              <span>Logout</span>
+            </button>
+          </div>
+        )}
 
         <button className="btn btn-primary" onClick={onOpenNewModal}>
           <Sparkles size={16} />

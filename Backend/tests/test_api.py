@@ -41,3 +41,24 @@ def test_benchmark_runner():
     b_data = bench_res.json()
     assert "metrics" in b_data
     assert "researchpilot" in b_data["metrics"]
+
+def test_midsem_questions_endpoint():
+    res = client.get("/api/midsem/questions")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["supported_count"] == 4
+    assert len(data["questions"]) == 4
+
+def test_midsem_query_validation():
+    # Valid Question Match
+    valid_res = client.post("/api/midsem/validate", json={"question": "How does hybrid BM25 compare to dense embeddings?"})
+    assert valid_res.status_code == 200
+    assert valid_res.json()["is_supported"] is True
+    assert valid_res.json()["matched_question"]["id"] == "midsem_q1"
+
+    # Out of Scope / Unsupported Question
+    invalid_res = client.post("/api/midsem/validate", json={"question": "What is the capital of France and how to make a cake?"})
+    assert invalid_res.status_code == 200
+    assert invalid_res.json()["is_supported"] is False
+    assert "Out of Scope for Current Prototype" in invalid_res.json()["message"]
+

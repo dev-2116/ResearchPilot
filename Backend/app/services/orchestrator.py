@@ -9,6 +9,7 @@ from app.services.retrieval import hybrid_retriever
 from app.services.verifier import evidence_verifier
 from app.services.sandbox import experiment_sandbox
 from app.services.report import report_generator
+from app.services.midsem_qa import validate_and_match_question
 
 class AgentOrchestrator:
     """
@@ -30,6 +31,18 @@ class AgentOrchestrator:
         domain = task.get("domain", "AI/ML")
         constraints = task.get("constraints", "")
 
+        # Question Guardrail Check
+        is_supported, matched_item, guardrail_msg = validate_and_match_question(question)
+        if not is_supported:
+            DB.update_run(run_id, status="FAILED", current_step="GUARDRAIL_BLOCKED", latest_error=guardrail_msg, progress=1.0)
+            DB.add_step(
+                run_id=run_id, step_type="GUARDRAIL_CHECK", step_index=1,
+                input_data={"question": question, "evaluation_milestone": "Core Prototype"},
+                output_data={"status": "REJECTED_OUT_OF_SCOPE", "message": guardrail_msg},
+                status="FAILED", latency_ms=25, token_usage=20, error_message=guardrail_msg
+            )
+            return
+
         try:
             # Step 1: PLAN
             step_start = time.time()
@@ -47,7 +60,8 @@ class AgentOrchestrator:
                 ],
                 "retrieval_strategy": "Hybrid BM25 + Dense Semantic Fusion with RRF",
                 "estimated_steps": 10,
-                "domain": domain
+                "domain": domain,
+                "milestone": "Core Evidence Prototype"
             }
             step_lat = int((time.time() - step_start) * 1000)
             DB.add_step(
@@ -108,12 +122,15 @@ class AgentOrchestrator:
             DB.update_run(run_id, current_step="VERIFY", progress=0.42)
             await asyncio.sleep(0.8)
             
-            # Extract claims from question/domain context
-            candidate_claims = [
-                f"Evidence-grounded RAG architectures reduce hallucinated assertions compared to unverified LLM baselines in scientific QA.",
-                f"Maintaining claim-to-source provenance graphs significantly increases citation precision.",
-                f"Controlled sandbox environments with reproducible manifests guarantee independent scientific validation."
-            ]
+            # Extract claims from matched question context or fallback
+            if matched_item and matched_item.get("key_claims"):
+                candidate_claims = matched_item["key_claims"]
+            else:
+                candidate_claims = [
+                    f"Evidence-grounded RAG architectures reduce hallucinated assertions compared to unverified LLM baselines in scientific QA.",
+                    f"Maintaining claim-to-source provenance graphs significantly increases citation precision.",
+                    f"Controlled sandbox environments with reproducible manifests guarantee independent scientific validation."
+                ]
             
             verified_claims = evidence_verifier.verify_claims_against_evidence(candidate_claims, retrieved_docs)
             for vc in verified_claims:
