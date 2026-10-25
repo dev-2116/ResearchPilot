@@ -55,19 +55,32 @@ class EvidenceVerifier:
         if has_contradiction:
             return "CONTRADICTION", 0.15, "The retrieved passage asserts contradictory empirical trends relative to the stated claim."
 
-        # Compute semantic support
-        overlap = len(claim_words.intersection(passage_words))
-        ratio = overlap / max(1, len(claim_words))
-        
-        # Key concept matching
-        scientific_terms = ["rag", "bm25", "hybrid", "retrieval", "provenance", "hallucination", "accuracy", "manifest", "seed", "sandbox", "evaluation", "baseline"]
+        # Multi-domain scientific concept matching
+        scientific_terms = [
+            "quantum", "qubit", "decoherence", "cancer", "tumor", "immunotherapy", "crispr",
+            "perovskite", "solar", "photovoltaic", "bci", "neural", "cortex", "graphene",
+            "mxene", "capacitance", "galaxy", "cosmology", "dark matter", "liquidity", "amm",
+            "crop", "drought", "transcription", "rag", "bm25", "hybrid", "retrieval",
+            "provenance", "hallucination", "accuracy", "manifest", "seed", "sandbox",
+            "evaluation", "baseline", "efficiency", "stability", "mechanism", "entailment"
+        ]
         key_matches = sum(1 for term in scientific_terms if term in claim_lower and term in passage_lower)
         
-        support_score = min(1.0, (ratio * 0.7) + (key_matches * 0.12) + 0.1)
+        # Token overlap analysis
+        overlap = len(claim_words.intersection(passage_words))
+        ratio = overlap / max(1, len(claim_words))
 
-        if support_score >= 0.55:
+        # Salient word overlap (words > 3 characters)
+        salient_claim = {w for w in claim_words if len(w) > 3}
+        salient_passage = {w for w in passage_words if len(w) > 3}
+        salient_overlap = len(salient_claim.intersection(salient_passage))
+        salient_ratio = (salient_overlap / max(1, len(salient_claim))) if salient_claim else 0.0
+
+        support_score = min(1.0, (ratio * 0.45) + (salient_ratio * 0.40) + (key_matches * 0.08) + 0.12)
+
+        if support_score >= 0.50:
             return "ENTAILED", round(support_score, 3), f"Strong factual grounding with {int(support_score*100)}% evidence alignment."
-        elif support_score >= 0.35:
+        elif support_score >= 0.30:
             return "NEUTRAL", round(support_score, 3), "Passage provides partial context but insufficient direct confirmation."
         else:
             return "NEUTRAL", round(support_score, 3), "Insufficient lexical and semantic overlap to verify claim."

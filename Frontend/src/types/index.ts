@@ -217,3 +217,45 @@ export interface LoginPayload {
   email: string;
   password: string;
 }
+
+// ── Academic Literature & Multi-Source API Types ──────────────────────────────
+
+export interface ExternalPaperChunk {
+  chunk_id: string;
+  text: string;
+  chunk_index: number;
+}
+
+export interface AcademicPaper {
+  id: string;
+  title: string;
+  authors: string;
+  publication_year: number;
+  venue: string;
+  abstract: string;
+  identifier: string;
+  url: string;
+  citation_count: number;
+  source: 'Semantic Scholar' | 'OpenAlex' | 'Crossref' | string;
+  source_id?: string;
+  chunks?: ExternalPaperChunk[];
+}
+
+export interface LiteratureSourceInfo {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  requires_api_key: boolean;
+  has_api_key: boolean;
+  badge: string;
+}
+
+export interface LiteratureSearchResult {
+  query: string;
+  total_found: number;
+  sources_queried: string[];
+  source_counts: Record<string, number>;
+  papers: AcademicPaper[];
+}
+

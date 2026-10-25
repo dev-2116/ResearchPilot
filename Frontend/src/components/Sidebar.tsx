@@ -7,10 +7,9 @@ import {
   BarChart3,
   FileText,
   Cpu,
-  Layers,
-  CheckCircle2,
   ShieldCheck,
-  Zap
+  Zap,
+  Globe
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -28,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const builtItems = [
     { id: 'core', label: 'Interactive Core Demo', icon: Zap, badge: 'Live Prototype' },
+    { id: 'literature', label: 'Literature Discovery', icon: Globe, badge: '3 APIs Live' },
   ];
 
   const plannedItems = [
@@ -55,8 +55,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="sidebar-nav">
         {/* Currently Built Section */}
-        <div style={{ padding: '4px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent-emerald)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          ⚡ Currently Built
+        <div style={{ padding: '6px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--accent-emerald)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          ⚡ Active Core
         </div>
         {builtItems.map((item) => {
           const Icon = item.icon;
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Icon size={18} color={isActive ? 'var(--accent-emerald)' : 'var(--text-muted)'} />
               <span style={{ flex: 1, fontWeight: isActive ? 700 : 500 }}>{item.label}</span>
               {item.badge && (
-                <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '1px 7px' }}>
+                <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
                   {item.badge}
                 </span>
               )}
@@ -80,8 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
 
         {/* Planned Modules Section */}
-        <div style={{ padding: '16px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-          🚧 Planned Modules (Yet to be Built)
+        <div style={{ padding: '18px 12px 6px', fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          Planned Architecture
         </div>
         {plannedItems.map((item) => {
           const Icon = item.icon;
@@ -94,14 +94,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <Icon size={18} color={isActive ? 'var(--accent-primary)' : 'var(--text-muted)'} />
               <span style={{ flex: 1 }}>{item.label}</span>
-              <span className="badge badge-slate" style={{ fontSize: '0.65rem', padding: '1px 6px', opacity: 0.85 }}>
+              {item.count !== undefined && item.count > 0 && (
+                <span className="badge badge-indigo" style={{ fontSize: '0.68rem', padding: '1px 6px', marginRight: 4 }}>
+                  {item.count}
+                </span>
+              )}
+              <span className="badge badge-slate" style={{ fontSize: '0.65rem', padding: '2px 6px', opacity: 0.85 }}>
                 {item.badge}
               </span>
             </div>
           );
         })}
       </nav>
-
 
       <div className="sidebar-footer">
         <div style={{ background: '#f8fafc', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
@@ -112,12 +116,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
           <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-            Zero ungrounded claims. Automated provenance mapping and reproducible manifests.
+            Zero ungrounded assertions. Strict NLI provenance verification and reproducible manifests.
           </p>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', padding: '0 4px' }}>
-          <span style={{ fontWeight: 500 }}>v1.0.0 (Formal)</span>
-          <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>● SRS Compliant</span>
+          <span style={{ fontWeight: 600 }}>ResearchPilot v1.0</span>
+          <span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>● Ready</span>
         </div>
       </div>
     </aside>

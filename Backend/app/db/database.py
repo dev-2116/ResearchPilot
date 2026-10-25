@@ -379,15 +379,16 @@ class DB:
         }
 
     @staticmethod
-    def add_step(run_id: str, step_type: str, step_index: int, input_data: Dict, output_data: Dict, status: str, latency_ms: int, token_usage: int, error: Optional[str] = None):
+    def add_step(run_id: str, step_type: str, step_index: int, input_data: Dict, output_data: Dict, status: str, latency_ms: int, token_usage: int, error: Optional[str] = None, error_message: Optional[str] = None):
         step_id = f"step_{run_id}_{step_index}_{uuid.uuid4().hex[:6]}"
         created_at = datetime.utcnow().isoformat() + "Z"
+        err_val = error or error_message
         with _lock:
             conn = get_connection()
             conn.execute(
                 """INSERT INTO agent_steps (id, run_id, step_index, step_type, input_json, output_json, status, latency_ms, token_usage, error_message, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (step_id, run_id, step_index, step_type, json.dumps(input_data), json.dumps(output_data), status, latency_ms, token_usage, error, created_at)
+                (step_id, run_id, step_index, step_type, json.dumps(input_data), json.dumps(output_data), status, latency_ms, token_usage, err_val, created_at)
             )
             conn.execute(
                 "UPDATE runs SET cost_tokens = cost_tokens + ?, cost_usd = cost_usd + ? WHERE id = ?",

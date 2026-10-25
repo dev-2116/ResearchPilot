@@ -1,5 +1,13 @@
 import React from 'react';
-import { Activity, LogOut, ShieldCheck, Sparkles, Terminal, User } from 'lucide-react';
+import {
+  Activity,
+  LogOut,
+  ShieldCheck,
+  Sparkles,
+  Terminal,
+  User,
+  FlaskConical
+} from 'lucide-react';
 import { Run } from '../types';
 import { AuthUser } from '../types';
 
@@ -11,12 +19,18 @@ interface NavbarProps {
   onLogout?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiConnected, user, onLogout }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  activeRun,
+  onOpenNewModal,
+  apiConnected,
+  user,
+  onLogout,
+}) => {
   return (
     <header className="top-header no-print">
-      <div className="header-title">
+      <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>System State:</span>
+          <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', fontWeight: 600 }}>System State:</span>
           <span className={`badge ${apiConnected ? 'badge-emerald' : 'badge-rose'}`}>
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: apiConnected ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}></span>
             {apiConnected ? 'Backend Operational' : 'Offline / Reconnecting'}
@@ -24,8 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiCo
         </div>
 
         {activeRun && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '20px', paddingLeft: '20px', borderLeft: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Investigation:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px', borderLeft: '1px solid var(--border-subtle)' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Active Investigation:</span>
             <span className="mono badge badge-indigo" style={{ fontWeight: 700 }}>{activeRun.run_id}</span>
             <span className={`badge ${activeRun.status === 'COMPLETED' ? 'badge-emerald' : activeRun.status === 'WAITING_APPROVAL' ? 'badge-amber' : activeRun.status === 'FAILED' ? 'badge-rose' : 'badge-cyan'}`}>
               {activeRun.status} ({activeRun.current_step})
@@ -34,15 +48,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiCo
         )}
       </div>
 
-      <div className="header-actions">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '5px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
             <ShieldCheck size={15} color="var(--accent-emerald)" />
-            <span style={{ fontWeight: 500 }}>NLI Verifier</span>
+            <span style={{ fontWeight: 600 }}>NLI Verifier</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '5px 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
             <Terminal size={15} color="var(--accent-primary)" />
-            <span style={{ fontWeight: 500 }}>Subprocess Sandbox</span>
+            <span style={{ fontWeight: 600 }}>Subprocess Sandbox</span>
           </div>
         </div>
 
@@ -59,15 +73,19 @@ export const Navbar: React.FC<NavbarProps> = ({ activeRun, onOpenNewModal, apiCo
               id="logout-btn"
               className="navbar-logout-btn"
               onClick={onLogout}
-              title="Sign out"
+              title="Sign out of researcher account"
             >
-              <LogOut size={15} />
-              <span>Logout</span>
+              <LogOut size={14} />
+              <span>Sign Out</span>
             </button>
           </div>
         )}
 
-        <button className="btn btn-primary" onClick={onOpenNewModal}>
+        <button
+          className="btn btn-primary"
+          onClick={onOpenNewModal}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 18px', fontWeight: 600 }}
+        >
           <Sparkles size={16} />
           <span>New Investigation</span>
         </button>

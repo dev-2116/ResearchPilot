@@ -131,5 +131,65 @@ class HybridRetriever:
         scored_candidates.sort(key=lambda x: x["reranker_score"], reverse=True)
         return scored_candidates[:top_k]
 
+    def ingest_papers(self, new_papers: List[Dict[str, Any]]) -> int:
+        """Ingests external papers into the active retriever index."""
+        existing_ids = {p.get("id") for p in self.papers}
+        existing_titles = {p.get("title", "").strip().lower() for p in self.papers}
+
+        ingested_count = 0
+        for p in new_papers:
+            p_id = p.get("id")
+            p_title = p.get("title", "").strip().lower()
+            if p_id in existing_ids or p_title in existing_titles:
+                continue
+
+            # Ensure chunks exist
+            if not p.get("chunks"):
+                from app.services.paper_fetcher import split_into_chunks
+                body = p.get("abstract") or f"{p.get('title')}. {p.get('venue')}, {p.get('publication_year')}."
+                p["chunks"] = [
+                    {"chunk_id": f"{p_id}_ch_{c_idx}", "text": c_text, "chunk_index": c_idx}
+                    for c_idx, c_text in enumerate(split_into_chunks(body))
+                ]
+
+            self.papers.append(p)
+            existing_ids.add(p_id)
+            existing_titles.add(p_title)
+            ingested_count += 1
+
+        if ingested_count > 0:
+            self._build_index()
+
+        return ingested_count
+
+    async def search_with_live_fallback(
+        self,
+        query: str,
+        top_k: int = 5,
+        fetch_external: bool = True,
+        max_external_per_source: int = 3
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieves passages using local BM25 + dense index.
+        If fetch_external is True, concurrently queries Semantic Scholar, OpenAlex,
+        and Crossref, dynamically ingesting latest papers into the retrieval index.
+        """
+        if fetch_external:
+            try:
+                from app.services.paper_fetcher import paper_aggregator
+                external_res = await paper_aggregator.search(query=query, limit_per_source=max_external_per_source)
+                fetched_papers = external_res.get("papers", [])
+                if fetched_papers:
+                    self.ingest_papers(fetched_papers)
+            except Exception as e:
+                # Retain robustness if external APIs fail
+                pass
+
+        return self.search(query=query, top_k=top_k)
+
+    def get_all_papers(self) -> List[Dict[str, Any]]:
+        return list(self.papers)
+
 # Global singleton
 hybrid_retriever = HybridRetriever()
+

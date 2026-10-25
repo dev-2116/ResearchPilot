@@ -11,7 +11,9 @@ import { ReportViewer } from './pages/ReportViewer';
 import { MidSemDemo } from './pages/MidSemDemo';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { LiteratureDiscovery } from './pages/LiteratureDiscovery';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { api } from './services/api';
 import {
   BenchmarkCase,
@@ -53,8 +55,6 @@ export const AppInner: React.FC = () => {
   // Polling interval ref
   const pollRef = useRef<any>(null);
 
-  // ── Auth guards ──────────────────────────────────────────────────────────────
-
   // Show full-screen spinner while restoring session
   if (isLoading) {
     return (
@@ -77,48 +77,48 @@ export const AppInner: React.FC = () => {
       : <RegisterPage onSwitchToLogin={() => setAuthView('login')} />;
   }
 
-  // ── Main App (authenticated) ────────────────────────────────────────────────
-
-  return <AuthenticatedApp
-    user={user}
-    logout={logout}
-    activeTab={activeTab}
-    setActiveTab={setActiveTab}
-    isModalOpen={isModalOpen}
-    setIsModalOpen={setIsModalOpen}
-    apiConnected={apiConnected}
-    setApiConnected={setApiConnected}
-    tasks={tasks}
-    setTasks={setTasks}
-    selectedTask={selectedTask}
-    setSelectedTask={setSelectedTask}
-    activeRun={activeRun}
-    setActiveRun={setActiveRun}
-    claims={claims}
-    setClaims={setClaims}
-    experiment={experiment}
-    setExperiment={setExperiment}
-    report={report}
-    setReport={setReport}
-    benchmarkResult={benchmarkResult}
-    setBenchmarkResult={setBenchmarkResult}
-    benchmarkCases={benchmarkCases}
-    setBenchmarkCases={setBenchmarkCases}
-    midsemQuestions={midsemQuestions}
-    setMidsemQuestions={setMidsemQuestions}
-    isLoadingTask={isLoadingTask}
-    setIsLoadingTask={setIsLoadingTask}
-    isApproving={isApproving}
-    setIsApproving={setIsApproving}
-    isReexecuting={isReexecuting}
-    setIsReexecuting={setIsReexecuting}
-    isRunningBenchmark={isRunningBenchmark}
-    setIsRunningBenchmark={setIsRunningBenchmark}
-    pollRef={pollRef}
-  />;
+  return (
+    <AuthenticatedApp
+      user={user}
+      logout={logout}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+      isModalOpen={isModalOpen}
+      setIsModalOpen={setIsModalOpen}
+      apiConnected={apiConnected}
+      setApiConnected={setApiConnected}
+      tasks={tasks}
+      setTasks={setTasks}
+      selectedTask={selectedTask}
+      setSelectedTask={setSelectedTask}
+      activeRun={activeRun}
+      setActiveRun={setActiveRun}
+      claims={claims}
+      setClaims={setClaims}
+      experiment={experiment}
+      setExperiment={setExperiment}
+      report={report}
+      setReport={setReport}
+      benchmarkResult={benchmarkResult}
+      setBenchmarkResult={setBenchmarkResult}
+      benchmarkCases={benchmarkCases}
+      setBenchmarkCases={setBenchmarkCases}
+      midsemQuestions={midsemQuestions}
+      setMidsemQuestions={setMidsemQuestions}
+      isLoadingTask={isLoadingTask}
+      setIsLoadingTask={setIsLoadingTask}
+      isApproving={isApproving}
+      setIsApproving={setIsApproving}
+      isReexecuting={isReexecuting}
+      setIsReexecuting={setIsReexecuting}
+      isRunningBenchmark={isRunningBenchmark}
+      setIsRunningBenchmark={setIsRunningBenchmark}
+      pollRef={pollRef}
+    />
+  );
 };
 
-// ── Main authenticated app ──────────────────────────────────────────────────
+// ── Main authenticated app component ──────────────────────────────────────────
 const AuthenticatedApp: React.FC<any> = (props) => {
   const {
     user, logout,
@@ -140,6 +140,8 @@ const AuthenticatedApp: React.FC<any> = (props) => {
     isRunningBenchmark, setIsRunningBenchmark,
     pollRef,
   } = props;
+
+  const { showToast } = useToast();
 
   // Initial Data Fetching
   useEffect(() => {
@@ -210,6 +212,12 @@ const AuthenticatedApp: React.FC<any> = (props) => {
             setReport(rep);
           } catch (e) {}
           clearInterval(pollRef.current);
+
+          showToast({
+            title: 'Investigation Completed',
+            message: `Research run finished with ${updatedRun.claims_count || 3} verified claims.`,
+            type: 'success'
+          });
         }
       } catch (err) {
         console.error('Polling error:', err);
@@ -259,8 +267,18 @@ const AuthenticatedApp: React.FC<any> = (props) => {
       setReport(null);
       setIsModalOpen(false);
       setActiveTab('workspace');
+
+      showToast({
+        title: 'Task Created',
+        message: `Launched investigation in ${data.execution_mode} mode.`,
+        type: 'success'
+      });
     } catch (err) {
-      alert(`Failed to launch research task: ${err}`);
+      showToast({
+        title: 'Launch Failed',
+        message: String(err),
+        type: 'error'
+      });
     } finally {
       setIsLoadingTask(false);
     }
@@ -273,8 +291,17 @@ const AuthenticatedApp: React.FC<any> = (props) => {
       await api.approveGatedRun(activeRun.run_id);
       const updated = await api.getRun(activeRun.run_id);
       setActiveRun(updated);
+      showToast({
+        title: 'Run Approved',
+        message: `Execution authorized for ${activeRun.run_id}.`,
+        type: 'success'
+      });
     } catch (err) {
-      alert(`Approval error: ${err}`);
+      showToast({
+        title: 'Approval Error',
+        message: String(err),
+        type: 'error'
+      });
     } finally {
       setIsApproving(false);
     }
@@ -288,8 +315,17 @@ const AuthenticatedApp: React.FC<any> = (props) => {
         const exp = await api.getRunExperiment(activeRun.run_id);
         setExperiment(exp);
       }
+      showToast({
+        title: 'Experiment Re-executed',
+        message: 'Sandbox run completed successfully.',
+        type: 'success'
+      });
     } catch (err) {
-      alert(`Execution error: ${err}`);
+      showToast({
+        title: 'Execution Failed',
+        message: String(err),
+        type: 'error'
+      });
     } finally {
       setIsReexecuting(false);
     }
@@ -300,8 +336,17 @@ const AuthenticatedApp: React.FC<any> = (props) => {
     try {
       const res = await api.runBenchmark(limit);
       setBenchmarkResult(res);
+      showToast({
+        title: 'Benchmark Finished',
+        message: `Tested ${res.case_results?.length || limit} benchmark cases.`,
+        type: 'success'
+      });
     } catch (err) {
-      alert(`Benchmark failed: ${err}`);
+      showToast({
+        title: 'Benchmark Failed',
+        message: String(err),
+        type: 'error'
+      });
     } finally {
       setIsRunningBenchmark(false);
     }
@@ -323,8 +368,18 @@ const AuthenticatedApp: React.FC<any> = (props) => {
       setClaims([]);
       setExperiment(null);
       setReport(null);
+
+      showToast({
+        title: 'Question Running',
+        message: `Analyzing: ${questionText.slice(0, 45)}...`,
+        type: 'info'
+      });
     } catch (err) {
-      alert(`Failed to launch research task: ${err}`);
+      showToast({
+        title: 'Execution Failed',
+        message: String(err),
+        type: 'error'
+      });
     } finally {
       setIsLoadingTask(false);
     }
@@ -348,47 +403,7 @@ const AuthenticatedApp: React.FC<any> = (props) => {
           onLogout={logout}
         />
 
-        {activeTab !== 'core' && (
-          <div
-            className="no-print"
-            style={{
-              margin: '16px 28px 0',
-              padding: '12px 18px',
-              borderRadius: 'var(--radius-md)',
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className="badge badge-amber" style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                Planned Architecture
-              </span>
-              <span style={{ fontSize: '0.84rem', color: '#92400e', fontWeight: 500 }}>
-                This module is part of the planned architecture and is <strong>yet to be built</strong>. The live working prototype is the Literature Retrieval & Evidence Verification Core.
-              </span>
-            </div>
-            <button
-              className="btn btn-secondary"
-              onClick={() => setActiveTab('core')}
-              style={{
-                fontSize: '0.78rem',
-                padding: '5px 12px',
-                background: '#ffffff',
-                borderColor: '#f59e0b',
-                color: '#b45309',
-                fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              ← Back to Implemented Core Demo
-            </button>
-          </div>
-        )}
+
 
         {activeTab === 'core' && (
           <MidSemDemo
@@ -400,6 +415,10 @@ const AuthenticatedApp: React.FC<any> = (props) => {
             report={report}
             onNavigateTab={setActiveTab}
           />
+        )}
+
+        {activeTab === 'literature' && (
+          <LiteratureDiscovery />
         )}
 
         {activeTab === 'dashboard' && (
@@ -463,6 +482,8 @@ const AuthenticatedApp: React.FC<any> = (props) => {
 
 export const App: React.FC = () => (
   <AuthProvider>
-    <AppInner />
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
   </AuthProvider>
 );

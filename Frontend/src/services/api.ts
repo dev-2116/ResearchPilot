@@ -1,10 +1,13 @@
 import {
+  AcademicPaper,
   AuthUser,
   BenchmarkCase,
   BenchmarkResult,
   Claim,
   Experiment,
   FinalReport,
+  LiteratureSearchResult,
+  LiteratureSourceInfo,
   LoginPayload,
   RegisterPayload,
   ResearchTask,
@@ -113,11 +116,39 @@ export const api = {
     return res.json();
   },
 
-  async searchCorpus(query: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+  async searchCorpus(query: string, useExternal: boolean = false): Promise<any> {
+    const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&use_external=${useExternal}`);
     if (!res.ok) throw new Error(`Failed to search corpus: ${res.statusText}`);
     return res.json();
   },
+
+  // Academic Literature APIs (Semantic Scholar, OpenAlex, Crossref)
+  async getLiteratureSources(): Promise<{ sources: LiteratureSourceInfo[] }> {
+    const res = await fetch(`${API_BASE}/literature/sources`);
+    if (!res.ok) throw new Error(`Failed to fetch literature sources: ${res.statusText}`);
+    return res.json();
+  },
+
+  async searchLiterature(query: string, sources?: string[], limit: number = 6): Promise<LiteratureSearchResult> {
+    let url = `${API_BASE}/literature/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+    if (sources && sources.length > 0) {
+      url += `&sources=${encodeURIComponent(sources.join(','))}`;
+    }
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to search academic literature: ${res.statusText}`);
+    return res.json();
+  },
+
+  async importLiteraturePapers(papers: AcademicPaper[]): Promise<{ status: string; ingested_count: number; total_active_papers: number; message: string }> {
+    const res = await fetch(`${API_BASE}/literature/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ papers }),
+    });
+    if (!res.ok) throw new Error(`Failed to import papers into corpus: ${res.statusText}`);
+    return res.json();
+  },
+
 
   // Core Prototype
   async getMidSemQuestions(): Promise<{

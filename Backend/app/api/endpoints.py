@@ -156,12 +156,90 @@ def list_benchmark_cases():
 
 @router.get("/corpus")
 def list_corpus_documents():
-    return PRELOADED_PAPERS
+    return hybrid_retriever.get_all_papers()
 
 @router.get("/search")
-def search_literature(q: str = Query(..., min_length=2), top_k: int = 5):
-    results = hybrid_retriever.search(query=q, top_k=top_k)
+async def search_literature(
+    q: str = Query(..., min_length=2),
+    top_k: int = 5,
+    use_external: bool = False
+):
+    if use_external:
+        results = await hybrid_retriever.search_with_live_fallback(query=q, top_k=top_k, fetch_external=True)
+    else:
+        results = hybrid_retriever.search(query=q, top_k=top_k)
     return {"query": q, "count": len(results), "results": results}
+
+# --- Multi-Source External Academic Literature (Semantic Scholar, OpenAlex, Crossref) ---
+from app.services.paper_fetcher import paper_aggregator
+
+@router.get("/literature/sources")
+def get_literature_sources():
+    """Return status and info about the connected academic data sources."""
+    from app.core.config import settings
+    return {
+        "sources": [
+            {
+                "id": "openalex",
+                "name": "OpenAlex API",
+                "description": "Comprehensive, fully open scholarly index of 250M+ research works with citation graphs and inverted abstracts.",
+                "status": "connected",
+                "requires_api_key": False,
+                "has_api_key": True,
+                "badge": "Open Index"
+            },
+            {
+                "id": "crossref",
+                "name": "Crossref API",
+                "description": "Official global DOI registry with 150M+ peer-reviewed journal articles, books, and proceedings.",
+                "status": "connected",
+                "requires_api_key": False,
+                "has_api_key": True,
+                "badge": "Official DOIs"
+            },
+            {
+                "id": "semanticscholar",
+                "name": "Semantic Scholar API",
+                "description": "AI-powered scientific research graph by Allen Institute for AI (S2AG) covering 200M+ publications.",
+                "status": "connected",
+                "requires_api_key": False,
+                "has_api_key": bool(getattr(settings, "SEMANTIC_SCHOLAR_API_KEY", "")),
+                "badge": "AI Research Graph"
+            }
+        ]
+    }
+
+@router.get("/literature/search")
+async def search_external_literature(
+    q: str = Query(..., min_length=2, description="Search query e.g. RAG, neural embeddings"),
+    sources: Optional[str] = Query(None, description="Comma-separated: semanticscholar,openalex,crossref"),
+    limit: int = Query(5, ge=1, le=25)
+):
+    """
+    Simultaneously search across Semantic Scholar, OpenAlex, and Crossref APIs.
+    Deduplicates results and generates RAG-ready text passages.
+    """
+    src_list = [s.strip().lower() for s in sources.split(",")] if sources else None
+    res = await paper_aggregator.search(query=q, sources=src_list, limit_per_source=limit)
+    return res
+
+@router.post("/literature/import")
+def import_literature_papers(payload: Dict[str, Any]):
+    """
+    Imports selected papers fetched from external APIs into the in-memory
+    retrieval corpus so they are used for evidence extraction and claim verification.
+    """
+    papers = payload.get("papers", [])
+    if not papers:
+        raise HTTPException(status_code=400, detail="No papers provided in payload")
+
+    ingested = hybrid_retriever.ingest_papers(papers)
+    return {
+        "status": "success",
+        "ingested_count": ingested,
+        "total_active_papers": len(hybrid_retriever.papers),
+        "message": f"Successfully ingested {ingested} papers into active research corpus."
+    }
 
 # --- Core Prototype Benchmark Endpoints ---
 from app.services.midsem_qa import APPROVED_MIDSEM_QUESTIONS, validate_and_match_question
