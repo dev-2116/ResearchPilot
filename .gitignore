@@ -1,49 +1,70 @@
-# Dependencies
+# ResearchPilot - root .gitignore
+# Policy: generic patterns + explicit repo paths where intent matters.
+# Audited: no tracked file matches any rule below (`git ls-files -ci --exclude-standard`).
+# Note: .gitignore never untracks already-committed files - tracked files were
+#       explicitly audited so nothing needed becomes hidden by these rules.
+
+# --- Dependencies ---
 node_modules/
 Frontend/node_modules/
-.pnp
-.pnp.js
 
-# Production / Builds
+# --- Build outputs & frontend tooling caches ---
 dist/
 Frontend/dist/
 dist-ssr/
 build/
 *.local
+.vite/
+Frontend/.vite/
+*.tsbuildinfo
+.eslintcache
 
-# Python
+# --- Python bytecode & packaging ---
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
-venv/
-.venv/
-ENV/
 *.egg-info/
 .installed.cfg
 *.egg
 
-# Testing & Coverage
+# --- Test, type-check & coverage caches ---
 .pytest_cache/
 Backend/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 .coverage.*
 htmlcov/
+coverage/
+Frontend/coverage/
 
-# Environment variables
+# --- Virtual environments ---
+# Bare `env/` deliberately NOT ignored: it is a common source-directory name
+# (e.g. Frontend/src/env/) and would silently hide code. Virtualenvs are
+# covered by the conventional venv/.venv/ENV names plus explicit repo paths.
+venv/
+.venv/
+ENV/
+Backend/venv/
+Backend/.venv/
+
+# --- Environment variables (secrets) ---
+# Local env files are never committed. Example templates stay tracked:
+!.env.example
 .env
 .env.local
 .env.*.local
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Runtime & Generated Artifacts
+# --- Runtime & generated app data (auto-created on first run, not source) ---
+# Backend/data/      -> SQLite DB (researchpilot.db), journals/wal/shm, runtime documents/
+# Backend/artifacts/ -> sandbox experiment outputs per run (code, logs, charts, manifests)
+# The app recreates both directories on startup (app/core/config.py). Sample
+# papers/seeds live in tracked code (app/services/corpus.py), not in these dirs.
+# If seed files are added here later, re-include them explicitly, e.g.:
+#   !Backend/data/seeds/
+#   !Backend/data/seeds/**
 Backend/artifacts/
 Backend/data/
 *.db
@@ -54,6 +75,15 @@ Backend/data/
 *.sqlite3
 *.log
 
-# OS
+# --- Editors & IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# --- Operating systems ---
 .DS_Store
-Thumbs.db
+Thumbs.db
+desktop.ini
