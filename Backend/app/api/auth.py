@@ -1,6 +1,7 @@
 """
 Authentication API – Register / Login / Me
 """
+import secrets
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -10,13 +11,38 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
+from app.core.config import settings
 from app.db.database import DB
 from app.models.schemas import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SECRET_KEY = "researchpilot-super-secret-jwt-key-2024"  # change in production
-ALGORITHM = "HS256"
+ALGORITHM = settings.JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_HOURS = 24
+
+# Populated lazily when JWT_SECRET_KEY is not configured (see _jwt_secret).
+_ephemeral_jwt_secret: Optional[str] = None
+
+
+def _jwt_secret() -> str:
+    """Return the JWT signing secret.
+
+    Prefers JWT_SECRET_KEY from the environment (.env supported). When it is
+    not configured, a strong random key is generated once per process so
+    local development keeps working; a clear notice is printed and sessions
+    reset on restart. The secret value itself is never printed or logged.
+    """
+    global _ephemeral_jwt_secret
+    if settings.JWT_SECRET_KEY:
+        return settings.JWT_SECRET_KEY
+    if _ephemeral_jwt_secret is None:
+        _ephemeral_jwt_secret = secrets.token_urlsafe(48)
+        print(
+            "[config] JWT_SECRET_KEY is not set - generated a random ephemeral "
+            "signing key for this process only. Login sessions will be "
+            "invalidated on restart. For persistent sessions set JWT_SECRET_KEY "
+            "(see Backend/.env.example)."
+        )
+    return _ephemeral_jwt_secret
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -41,7 +67,7 @@ def _verify_password(plain: str, hashed: str) -> bool:
 def _create_access_token(user_id: str, email: str) -> str:
     expire = datetime.utcnow() + timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
     payload = {"sub": user_id, "email": email, "exp": expire}
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(payload, _jwt_secret(), algorithm=ALGORITHM)
 
 
 def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)):
@@ -50,7 +76,7 @@ def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depen
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     token = credentials.credentials
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, _jwt_secret(), algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="Invalid token")

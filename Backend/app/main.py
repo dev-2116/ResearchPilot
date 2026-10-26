@@ -11,7 +11,36 @@ from app.db.database import init_db
 async def lifespan(app: FastAPI):
     # Initialize database tables on startup
     init_db()
+    _report_configuration()
     yield
+
+
+def _describe_database_url(url: str) -> str:
+    """Reduce a database URL to its scheme. URLs may embed credentials, so
+    the full value (and any userinfo or path) is never printed."""
+    if "://" in url:
+        scheme = url.split("://", 1)[0]
+    elif ":" in url:
+        scheme = url.split(":", 1)[0]
+    else:
+        scheme = "unknown"
+    return f"{scheme}://***"
+
+
+def _report_configuration():
+    """Startup configuration report. Reports which variables are set or
+    missing, but never prints secret values (keys, passwords, tokens)."""
+    llm_status = "set (value hidden)" if settings.LLM_API_KEY else \
+        "not set - using built-in heuristic verifier (no external LLM calls)"
+    jwt_status = "set (value hidden)" if settings.JWT_SECRET_KEY else \
+        "not set - ephemeral random key per process (sessions reset on restart)"
+    print(f"[config] {settings.PROJECT_NAME} v{settings.VERSION} starting")
+    print(f"[config] DATABASE_URL: {_describe_database_url(settings.DATABASE_URL)}")
+    print(f"[config] DEBUG: {settings.DEBUG}")
+    print(f"[config] LLM_API_KEY: {llm_status}")
+    print(f"[config] LLM_MODEL: {settings.LLM_MODEL}")
+    print(f"[config] JWT_SECRET_KEY: {jwt_status}")
+    print("[config] See Backend/.env.example for all supported variables.")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
