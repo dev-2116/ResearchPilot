@@ -1,150 +1,275 @@
-﻿# ResearchPilot
+# ResearchPilot
 
 **Evidence-Verified Autonomous AI Research Agent**
 
-ResearchPilot is an AI-powered research assistant that performs a controlled, traceable research workflow instead of simply generating text. A user submits a research question, and the system plans the task, retrieves literature and evidence, verifies claims, proposes an experiment, generates and executes code in a controlled sandbox, evaluates the outcome, and produces a traceable research report.
-
-The core idea behind the project is evidence-first autonomous research: every important factual claim should be connected to retrieved evidence, every experiment should record its inputs and configuration, and every conclusion should be based on observable results. That makes this repository both a software product (a working web application) and a research testbed (a benchmark plus an empirical study comparing agent architectures).
+ResearchPilot is a full-stack research assistant that runs a controlled, traceable research workflow instead of free-form text generation. You submit a research question; the backend plans the task, retrieves literature, extracts evidence passages with citation provenance, verifies claims against that evidence, designs and executes a sandboxed experiment, evaluates the results, and produces a structured report — recording every step as a replayable trace. The repository is both a working web application and a research testbed for studying evidence-grounded agent architectures.
 
 ## Table of Contents
 
-- Overview
-- Key Features
+- What ResearchPilot Does
+- Current Implementation Status
 - Tech Stack
-- System Architecture
-- Agent Pipeline
+- Architecture
 - Repository Layout
-- Getting Started
-- Data Model
+- Prerequisites
+- Backend Setup (Windows PowerShell)
+- Frontend Setup (Windows PowerShell)
+- Environment Configuration
+- Service URLs
 - API Overview
-- Evaluation and Benchmark
-- Research Methodology
-- Development Roadmap
-- Testing
-- Security and Sandbox
-- Observability and Reproducibility
-- Deployment
-- Research Paper
-- Risks and Limitations
-- Contributing
+- Running Tests
+- Database and Artifacts
+- Research Design and Roadmap
+- Security Notes
 - License
+- Status
 
-## Overview
+## What ResearchPilot Does
 
-Large language models can generate fluent research-style answers, but fluency does not guarantee factual correctness, valid citations, valid experiments, or reproducibility. The problem ResearchPilot addresses is how an AI research agent can be designed so that its outputs are more evidence-grounded, verifiable, and reproducible than a conventional LLM or a basic RAG system.
+- **Research dashboard** — create research tasks, launch runs, follow the pipeline on a live state graph, inspect evidence, experiments, and reports.
+- **11-step agent pipeline** — `PLAN → RETRIEVE → EXTRACT_EVIDENCE → VERIFY → DESIGN_EXPERIMENT → GENERATE_CODE → EXECUTE → EVALUATE → REVIEW → REPORT → COMPLETE`, implemented as an explicit state machine with step budgets rather than an unbounded loop.
+- **Hybrid retrieval** — BM25 + dense semantic scoring with reciprocal-rank fusion over a preloaded academic corpus, plus optional live lookups against public scholarly APIs (Semantic Scholar, OpenAlex, CrossRef — no API keys required).
+- **Claim-level provenance** — every claim maps to evidence passages with support scores, entailment labels, and full citation metadata; retrieval relevance alone never counts as support.
+- **Sandboxed experiments** — generated Python code executes in an isolated subprocess with a hard timeout and restricted environment; a deterministic random seed and a SHA-256-hashed manifest make every run reproducible and auditable.
+- **JWT-secured multi-user access** — register/login with bcrypt password hashing.
+- **Benchmark runner** — compares standard-LLM / basic-RAG / agentic-RAG / ResearchPilot profiles on a fixed case suite.
+- **Full run traces** — every step records inputs, outputs, latency, token accounting, and evidence counts; reports embed provenance hashes.
 
-The proposed contribution is what the project calls the Evidence-Verified Research Loop. It combines claim-level evidence tracking, verification before final conclusions, experiment provenance, and feedback from experiment results back into the agent's state.
+## Current Implementation Status
 
-The project is organized around four research questions. The first asks whether evidence verification reduces unsupported claims, with the hypothesis that verified agents produce a lower unsupported-claim rate. The second asks whether provenance improves citation correctness, hypothesizing that claim-level provenance increases citation precision. The third asks whether experiment feedback improves final conclusions, hypothesizing that feedback-loop agents produce more valid conclusions. The fourth asks what verification costs, hypothesizing that it improves reliability at a measurable latency and token cost.
+Read this before contributing, so expectations match the code.
 
-## Key Features
+**Implemented and verified** (all commands in this README were executed against the code):
 
-ResearchPilot lets a user create and track research tasks through a web dashboard. It performs hybrid literature retrieval that combines keyword and semantic search with reranking, and it extracts evidence while tracking citations and claim-to-source provenance. A verification step checks whether claims are actually supported by retrieved evidence before the system relies on them. The agent can generate a hypothesis and an experiment plan, then execute the resulting code in a sandboxed, resource-limited environment rather than on the host system. Results are evaluated automatically against baselines, and every run produces a full trace of decisions, evidence, code, metrics, and outputs. Reports are generated with citations and experiment results attached, and a benchmark suite makes it possible to compare different agent architectures on the same tasks.
+- FastAPI backend with 26 endpoints (verified via `/openapi.json`), JWT authentication, and SQLite persistence with 14 auto-initialized tables.
+- React 18 + Vite 5 dashboard; production build type-checks cleanly.
+- pytest suite: 13 tests across five test files, all passing.
+- Hybrid retrieval, evidence extraction, heuristic claim verification, sandboxed experiment execution, report generation, and the full end-to-end pipeline.
 
-By design, the first version does not include a custom foundation model, a large-scale web crawler, a full scientific database, unrestricted shell execution, or a general-purpose autonomous agent with unbounded capabilities. Those additions increase risk without strengthening the research contribution.
+**Deterministic simulations (by design, clearly labeled in code):**
+
+- Experiment metrics are produced by synthetic-data experiments (seed 42) generated from a sandbox template. They exercise the entire pipeline and its reproducibility machinery, but they are not measurements from real machine-learning experiments.
+- The benchmark comparison computes its metric table from a fixed, code-defined dataset.
+- Claim verification is a heuristic scorer, not a neural NLI model.
+
+**Roadmap targets (not current behavior):** wiring an external LLM (e.g. Google Gemini via the reserved `LLM_API_KEY`), PostgreSQL + pgvector persistence, Docker-isolated experiment execution, and the empirical benchmark study described under *Research Design and Roadmap*.
 
 ## Tech Stack
 
-The frontend is built with Next.js and TypeScript for the research dashboard and workflow UI. The backend is a FastAPI service written in Python. Data is stored in PostgreSQL, with the pgvector extension handling semantic evidence retrieval. Agent logic, retrieval, and evaluation are all implemented in Python, using structured LLM tool calling. Experiment code runs inside Docker containers to keep execution isolated and reproducible, and the project is versioned with Git and hosted on GitHub.
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, TypeScript 5, Vite 5, lucide-react, clsx |
+| Backend | Python 3.11+, FastAPI, Uvicorn, Pydantic v2 |
+| Authentication | bcrypt + python-jose (HS256 JWT) |
+| Data | SQLite via the standard library (`sqlite3`); PostgreSQL/pgvector is a roadmap target |
+| Retrieval & analysis | httpx, numpy, scikit-learn, matplotlib |
+| Configuration | python-dotenv (`.env` support) |
+| Testing | pytest |
 
-## System Architecture
+## Architecture
 
-The system uses a layered architecture so that the UI, API, agent logic, retrieval, data, and execution environment stay separate. This keeps the project from collapsing into a single large script and makes research experiments easier to reproduce.
+```
+Browser — React SPA (http://localhost:5173)
+   │  fetches /api/* — proxied by the Vite dev server
+   ▼
+FastAPI / Uvicorn (http://127.0.0.1:8000)
+   ├─ app/api/auth.py            JWT register / login / me (bcrypt, HS256)
+   ├─ app/api/endpoints.py       tasks, runs, trace, evidence, experiments,
+   │                             artifacts, benchmarks, literature, midsem…
+   ├─ app/services/orchestrator.py   11-step state machine (background task)
+   ├─ app/services/retrieval.py      hybrid BM25 + dense fusion, RRF
+   ├─ app/services/paper_fetcher.py  live scholarly APIs (no keys)
+   ├─ app/services/verifier.py       claim–evidence support scoring
+   ├─ app/services/sandbox.py        subprocess experiment runner
+   ├─ app/services/report.py         structured report assembly
+   ├─ app/services/benchmark.py      architecture comparison runner
+   └─ app/db/database.py             SQLite schema, init_db(), all queries
+   ▼
+Backend/data/researchpilot.db          Backend/artifacts/<run_id>/
+(SQLite, auto-created)                 (per-run outputs, hashed manifests)
+```
 
-The presentation layer is the Next.js dashboard, including forms, the run timeline, and the evidence viewer. The API layer handles authentication, task CRUD operations, run control, and report endpoints. The orchestration layer runs the agent's state machine, handling retries, routing, and stopping rules. The AI services layer wraps LLM calls, embeddings, reranking, and structured outputs. The retrieval layer handles paper and source search, chunking, indexing, and ranking. The verification layer checks claims, scores evidence, and detects contradictions. The execution layer is the sandboxed experiment runner. Persistence is handled by PostgreSQL, pgvector, and object or file storage. Finally, the observability layer captures logs, traces, metrics, and cost and run metadata.
-
-At a high level, a user's request flows from the Next.js web UI into the FastAPI backend, which hands it to the research task manager. From there, the agent orchestrator takes over, calling out through a tool gateway to PostgreSQL and pgvector, a document and evidence store, and a sandboxed code executor as needed.
-
-## Agent Pipeline
-
-The agent moves through an explicit state machine rather than an uncontrolled recursive loop: a task is created, then the agent plans, retrieves, extracts evidence, verifies, designs an experiment, generates code, executes it, evaluates the results, reviews them, produces a report, and completes the run.
-
-Within that pipeline, a planner breaks the research question into steps, and a retriever selects sources and evidence. An evidence verifier assesses whether the evidence actually supports the claims and checks for contradictions. An experiment designer defines the hypothesis, baseline, variables, and metrics, and a code generator turns that design into runnable experiment code. An executor runs that code in the sandbox, and an evaluator calculates metrics and checks their validity. A reviewer then decides whether the results actually support the claim, and a report generator writes the final structured report with full provenance.
-
-A few control rules keep the agent bounded: there's a maximum number of steps and tool calls per run, retries only happen for recoverable failures, generated code never executes outside the sandbox, evidence is required before any high-confidence factual claim, experiment outputs are required before claiming experimental success, and the agent stops and asks the user for input whenever a task looks ambiguous or unsafe.
-
-Retrieval itself follows a pipeline: a query is expanded, then searched with both keyword and vector retrieval, after which candidates are merged, reranked, and turned into extracted evidence. That evidence is deduplicated, scored, and finally mapped to specific claims. Each evidence record keeps track of the source ID, document title, authors, publication metadata, a URL or identifier, the passage text, its chunk location, retrieval and reranker scores, and a timestamp. It's worth emphasizing that retrieval only establishes relevance — verification is what establishes whether a piece of evidence actually supports a claim.
+The API layer creates a run and returns immediately; the orchestrator executes the pipeline as a background task while the dashboard polls run status. CORS is enabled so the frontend can also talk to the backend directly without the proxy.
 
 ## Repository Layout
 
-The repository is split into a small number of top-level areas. An `apps` directory holds the Next.js web client and the FastAPI backend as separate applications. A `services` directory holds the agent orchestrator, the retrieval service, the verification service, the evaluation service, and the sandboxed executor, each as an independent module. A `packages` directory holds shared schemas and versioned prompt templates used across services. Separately, `experiments` and `benchmarks` hold experiment configurations and benchmark cases and results, `docs` holds architecture and design documentation, `infra` holds Docker and deployment configuration, and `scripts` holds development utilities.
+```
+ResearchPilot/
+├── Backend/
+│   ├── app/
+│   │   ├── api/                # HTTP layer: endpoints.py (research API), auth.py (JWT)
+│   │   ├── core/config.py      # Settings, .env loading, runtime directories
+│   │   ├── db/database.py      # SQLite schema (14 tables), init_db(), queries
+│   │   ├── models/schemas.py   # Pydantic request/response models
+│   │   ├── services/           # orchestrator, retrieval, verifier, sandbox,
+│   │   │                       #   report, benchmark, paper_fetcher, corpus, midsem_qa
+│   │   └── main.py             # FastAPI app; startup runs init_db + config report
+│   ├── tests/                  # pytest suite (api, retrieval, verifier, sandbox, paper_fetcher)
+│   ├── requirements.txt        # pinned-minimum Python dependencies
+│   ├── .env.example            # configuration template with explanations
+│   ├── pytest.ini              # sets pythonpath=. (run pytest from Backend/)
+│   ├── data/                   # runtime: SQLite DB — git-ignored, auto-created
+│   └── artifacts/              # runtime: per-run experiment outputs — git-ignored
+├── Frontend/
+│   ├── src/pages/              # Dashboard, ResearchWorkspace, EvidenceExplorer,
+│   │                           #   ExperimentLab, EvaluationHub, ReportViewer,
+│   │                           #   LiteratureDiscovery, MidSemDemo, Login/Register
+│   ├── src/components/         # Navbar, Sidebar, StateGraph, NewResearchModal
+│   ├── src/context/            # AuthContext (JWT), ToastContext
+│   ├── src/services/api.ts     # typed backend client
+│   ├── src/types/index.ts      # shared TypeScript types
+│   ├── vite.config.ts          # dev port 5173, /api proxy → 127.0.0.1:8000
+│   └── package.json            # scripts: dev, build (tsc && vite build), preview
+├── docs/examples/research-pipeline/   # curated real-run artifact example + provenance
+├── .gitignore                  # excludes deps, caches, env files, runtime data
+└── README.md
+```
 
-## Getting Started
+## Prerequisites
 
-You'll need Python 3.11 or later, Node.js 18 or later, PostgreSQL 15 or later with the pgvector extension enabled, and Docker for sandboxed experiment execution.
+| Tool | Required version | Verified with |
+|---|---|---|
+| Python | 3.11 or later | 3.12.15 |
+| Node.js | 18 or later (Vite 5 requirement) | 24.21.0 |
+| npm | 9 or later | 11.19.0 |
+| Git | any recent version | — |
 
-To set up the backend, clone the repository, move into the API app directory, create and activate a virtual environment, install the requirements, and start the server with `uvicorn main:app --reload`. To set up the frontend, move into the web app directory, run `npm install`, and start it with `npm run dev`. For local development, PostgreSQL and the other supporting services are easiest to run through Docker Compose, for example with `docker compose up -d postgres`.
+No Docker, PostgreSQL, or external API keys are required for local development.
 
-The recommended build order is deliberately incremental: start with a deterministic, non-agent version of the system, then add retrieval, then evidence handling, then verification, then agent orchestration, and only at the end add autonomous experiment execution. This keeps debugging manageable and creates clear milestones along the way.
+## Backend Setup (Windows PowerShell)
 
-A reasonable first two weeks looks like this: create the GitHub repository and issue board, write a one-page problem statement, freeze the first research question, sketch the architecture diagram, set up Next.js, FastAPI, and PostgreSQL, implement task creation and run status, write the database migrations, add a mock agent that emits deterministic steps just to get the plumbing working, build the run timeline UI, and only then connect a real LLM.
+```powershell
+# 1. Clone and enter the project
+git clone https://github.com/dev-2116/ResearchPilot.git
+cd ResearchPilot\Backend
 
-## Data Model
+# 2. Create and activate a virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+# If PowerShell blocks script execution, run this once, then retry:
+#   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
-The core entities are users, research tasks, and runs — a run being one execution of a task. Each run produces a sequence of agent steps, which together form the agent's trajectory through the pipeline. Documents represent research sources, and each document is broken into chunks that carry an embedding and are the actual unit of retrievable evidence. Claims are the statements the system makes during a run, and a separate claim-evidence mapping records which chunks support which claims, along with a support score — this mapping is the heart of the provenance model. Experiments capture a hypothesis and configuration, while experiment runs capture a concrete execution of that experiment, including its seed and status; metrics attached to an experiment run hold the actual measured results. Artifacts record code, logs, reports, and charts produced along the way, each with a path and hash. Finally, benchmarks and benchmark cases define the reusable evaluation suite: a benchmark is a named, versioned collection of individual cases, each with its own question and reference answer.
+# 3. Install dependencies
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+
+# 4. (Optional) configure the environment
+Copy-Item .env.example .env
+notepad .env    # placeholders and explanations are inside the file
+
+# 5. Start the API on http://127.0.0.1:8000
+uvicorn app.main:app --reload
+```
+
+Notes:
+
+- Run from the `Backend` directory — the app module path is `app.main:app`. `python -m app.main` is an equivalent launcher (see `app/main.py`); both serve on `127.0.0.1:8000`.
+- The SQLite database is created and initialized automatically on first startup — there is no migration step.
+- To change the port: `uvicorn app.main:app --reload --port 8001` (then update the frontend proxy, see *Service URLs*).
+- Temporary environment variables in PowerShell: `$env:JWT_SECRET_KEY = "your-generated-value"`. Prefer the `.env` file — it is loaded automatically.
+
+Equivalent bash (Linux/macOS):
+
+```bash
+cd Backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+## Frontend Setup (Windows PowerShell)
+
+```powershell
+# In a second terminal
+cd ResearchPilot\Frontend
+
+node -v          # confirm 18 or later
+npm install      # or: npm ci — installs exactly from package-lock.json
+npm run dev      # serves the dashboard at http://localhost:5173
+```
+
+Production build:
+
+```powershell
+npm run build    # type-checks with tsc, outputs Frontend/dist/
+npm run preview  # serves the built app at http://localhost:4173
+```
+
+Keep the backend running in its own terminal — the dashboard needs it for every page except login/registration, which also require it.
+
+## Environment Configuration
+
+Copy `Backend/.env.example` to `Backend/.env` and fill in values you need. The example file contains placeholders and explanations only — never real credentials. Real environment variables take precedence over `.env` values, and `.env` is git-ignored.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `sqlite:///data/researchpilot.db` | Connection string; may contain credentials, so keep it in `.env` only. PostgreSQL URLs are a roadmap target — the current DB layer uses SQLite directly. |
+| `DEBUG` | `true` | Development mode; set `false` for production. |
+| `LLM_API_KEY` | *(empty)* | Reserved for wiring an external LLM (e.g. Google Gemini) into the verifier. The built-in heuristic verifier makes no external calls — no key is required today. |
+| `LLM_MODEL` | `researchpilot-verifier-v1` | Model identifier recorded in traces and manifests. |
+| `JWT_SECRET_KEY` | *(ephemeral random)* | Signs auth tokens. Required for real deployments; if unset, a random per-process key is used with a clear notice, and sessions reset on restart. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm. |
+
+On startup the API prints a configuration report naming which variables are set or missing. It never prints secret values: database URLs are reduced to their scheme (`sqlite://***`), and keys are reported only as *set (value hidden)*.
+
+## Service URLs
+
+| URL | Service | How to change the port |
+|---|---|---|
+| `http://localhost:5173` | Frontend dev server | `npm run dev -- --port 3000`, or `server.port` in `Frontend/vite.config.ts` |
+| `http://127.0.0.1:8000` | Backend API | `uvicorn app.main:app --port <port>` |
+| `http://127.0.0.1:8000/docs` | Swagger UI (interactive API docs) | follows the backend port |
+| `http://127.0.0.1:8000/openapi.json` | OpenAPI schema | follows the backend port |
+| `http://127.0.0.1:8000/health` | Health check | follows the backend port |
+| `http://localhost:4173` | Built frontend (`npm run preview`) | `npm run preview -- --port 5000` |
+
+If you move the backend off port 8000, update the proxy target in `Frontend/vite.config.ts` (`server.proxy['/api'].target`) and restart the dev server, otherwise dashboard requests will fail.
 
 ## API Overview
 
-The API exposes endpoints to create and read research tasks, start a run against a task, and read a run's status. Separate endpoints expose the full agent trace for a run and the evidence gathered during it, and there's an approval endpoint for any gated action that requires explicit user sign-off before proceeding. Experiments tied to a run can be listed and then executed once approved, and a run's final report can be fetched once it's ready. There's also an endpoint to kick off a full benchmark run.
+All endpoints are prefixed with `/api` (26 routes, verified via `/openapi.json`):
 
-A typical run status response looks like this:
+- **Authentication** — `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- **Tasks & runs** — `POST /api/tasks`, `GET /api/tasks`, `GET /api/tasks/{task_id}`, `POST /api/tasks/{task_id}/runs`, `GET /api/runs/{run_id}`, `POST /api/runs/{run_id}/approve`
+- **Run inspection** — `GET /api/runs/{run_id}/trace`, `/evidence`, `/experiments`, `/artifacts`, `/report`
+- **Experiments** — `POST /api/experiments/{experiment_id}/execute` (re-executes in the sandbox)
+- **Artifacts** — `GET /api/artifacts/{run_id}/{filename}` (serves charts, manifests, metrics)
+- **Benchmarks** — `GET /api/benchmarks/cases`, `POST /api/benchmarks/run`
+- **Literature** — `GET /api/literature/search`, `GET /api/literature/sources`, `POST /api/literature/import`
+- **Utilities** — `GET /api/search`, `GET /api/corpus`, `GET /api/midsem/questions`, `POST /api/midsem/validate`, `GET /health`
 
-```json
-{
-  "run_id": "run_123",
-  "status": "EVALUATING",
-  "current_step": "evaluate",
-  "progress": 0.78,
-  "cost": { "tokens": 18240 },
-  "evidence_count": 24
-}
+Interactive documentation lives at `/docs` while the backend is running.
+
+## Running Tests
+
+```powershell
+cd ResearchPilot\Backend
+.\.venv\Scripts\Activate.ps1
+python -m pytest tests -v
 ```
 
-## Evaluation and Benchmark
+The suite contains 13 tests across five files: `test_api.py` (end-to-end pipeline, benchmark, and midsem endpoints), `test_retrieval.py`, `test_verifier.py`, `test_sandbox.py`, and `test_paper_fetcher.py`. Run pytest from the `Backend` directory (`pytest.ini` sets `pythonpath = .`). All 13 tests passed when this documentation was last verified.
 
-Evaluation centers on a handful of metrics: answer accuracy against reference criteria, citation precision (the fraction of cited sources that actually support the associated claim), citation recall (the fraction of required supporting evidence that was successfully cited), and the unsupported-claim rate. Alongside those, the system tracks experiment success (the percentage of planned experiments that execute successfully), result validity (whether the stated conclusion is consistent with the computed metrics), and reproducibility (whether a rerun with the same configuration reproduces the result within tolerance). Latency and cost are tracked per task, and a blind human rating using a fixed rubric rounds out the picture. The goal is to avoid evaluating the system with a vague "it looks good" — metrics need to be defined before experiments are run, not after.
+## Database and Artifacts
 
-The benchmark itself should start small and high-quality rather than large and noisy — something like 30 to 50 cases during development, expanding to 100 or more for the final study if time allows. Each case includes a research question, a difficulty level, relevant reference documents and evidence passages, the expected claims or evaluation criteria, an experiment requirement where applicable, expected metrics, optionally some distractor or contradictory evidence, and ground-truth reviewer notes. Categories of benchmark cases include literature QA (answering a technical question from selected papers), evidence linking (selecting passages that support a claim), contradiction detection (noticing when sources disagree), hypothesis generation, experiment planning, code experiments that must actually run, and conclusion validity (deciding whether results support a hypothesis).
+- The SQLite database (`Backend/data/researchpilot.db`) and its 14 tables are created automatically at startup; there is no migration or seed step. The demo corpus and benchmark cases live in code (`app/services/corpus.py`, `app/services/benchmark.py`), not in the database.
+- To reset local data: stop the server, then `Remove-Item .\data\researchpilot.db*` (PowerShell) or `rm -f data/researchpilot.db*` (bash), and restart.
+- Experiment outputs (script, manifest, metrics, chart) are written to `Backend/artifacts/<run_id>/` and are git-ignored. A curated, verified example of a real run — including how to reproduce it byte-for-byte — lives in `docs/examples/research-pipeline/`.
 
-## Research Methodology
+## Research Design and Roadmap
 
-The study follows an empirical comparative design: ResearchPilot is the treatment, and three progressively simpler systems act as baselines. Baseline A is a standard LLM given the research question directly, with no retrieval or verification. Baseline B is basic RAG — retrieved documents are handed to the model, but there's no verification loop. Baseline C is agentic RAG, which adds planning and iterative retrieval but still omits claim-level evidence verification and experiment feedback. ResearchPilot itself adds hybrid retrieval, evidence verification, experiment provenance, and evaluation feedback on top of planning. To keep the comparison fair, the benchmark cases, evaluation rubric, and major model constraints stay consistent across all four systems.
+*(Planned study — this section describes the research direction, not current behavior.)*
 
-Beyond the main comparison, a set of ablations is recommended: removing claim-level verification, replacing hybrid retrieval with vector-only retrieval, removing reranking, removing the experiment feedback loop, reducing the amount of evidence used, changing the model configuration or verification threshold, and comparing a single-pass workflow against an iterative one. Results should be analyzed for both quality and cost — a method that improves accuracy slightly while multiplying cost by twenty times may not be a practical improvement. Importantly, the results shouldn't be decided in advance; the research claim needs to stay falsifiable, so the experiments should be designed so the system could plausibly improve, stay the same, or perform worse.
+The project is organized around four research questions: whether evidence verification reduces unsupported claims; whether claim-level provenance improves citation precision; whether experiment feedback improves conclusion validity; and what verification costs in latency and tokens. The planned study compares ResearchPilot against three baselines — a plain LLM, basic RAG, and agentic RAG — on a shared benchmark, with ablations for verification, hybrid retrieval, reranking, and the feedback loop. Results should be analyzed for quality **and** cost, and the design stays falsifiable.
 
-## Development Roadmap
+The development roadmap proceeds in phases: full-stack skeleton → retrieval → evidence layer → orchestration → experiment lab → evaluation suite → the comparative study → paper and deployment. The target architecture adds PostgreSQL + pgvector for scalable semantic retrieval, Docker-based experiment isolation, and external LLM integration. The working title for the resulting paper is *"ResearchPilot: An Evidence-Verified Agentic Framework for Reproducible AI-Assisted Research."*
 
-The project is designed to unfold in eight phases plus an initial setup phase. Phase zero, lasting one to two weeks, covers the problem definition, repository setup, architecture, and initial literature review. Phase one, about two weeks, builds the full-stack skeleton: Next.js, FastAPI, PostgreSQL, and basic authentication and task CRUD. Phase two, two to three weeks, adds document ingestion, chunking, embeddings, and hybrid retrieval. Phase three, about two weeks, builds out the evidence layer — claims, evidence mapping, a citation viewer, and the verifier. Phase four, about three weeks, adds agent orchestration: the planner, the state graph, tools, retries, and the trace. Phase five, three to four weeks, builds the experiment lab, including the sandbox, code generation, execution, and metrics. Phase six, two to three weeks, builds out evaluation — baselines, the benchmark, metrics, and dashboards. Phase seven, three to five weeks, is the main research study: primary runs, ablations, and analysis. Phase eight, three to four weeks, wraps up the paper, demo, documentation, and deployment. Altogether, this is roughly six to nine months part-time, or three to five months full-time.
+## Security Notes
 
-## Testing
-
-Testing spans several layers. Unit tests cover things like evidence score calculation, parsers, and API validation. Integration tests check that the retriever, reranker, and evidence store work correctly together. Agent-level tests check state transitions, retries, and stopping conditions. Security tests specifically probe for sandbox escape attempts and secret exposure. Regression tests make sure the same benchmark case doesn't unexpectedly get worse over time. UI tests cover task creation, the run timeline, and evidence navigation. Experiment tests check metric calculations against known values, and reproducibility tests confirm that the same seed and configuration produce equivalent outputs within tolerance.
-
-## Security and Sandbox
-
-Generated code should always be treated as untrusted. The experiment executor is kept isolated from the application server and the production database. Experiments run inside an isolated container with CPU, memory, and execution-time limits, mounting only the dataset and working directory they actually need. Application secrets and production credentials are never exposed to that environment, unnecessary network access is disabled, and datasets are mounted read-only wherever possible. Package versions and environment information are recorded for every run, each experiment gets a unique ID and a random seed, and stdout, stderr, the exit code, and any output artifacts are all persisted. At minimum, an experiment's manifest should record its experiment ID, code version, dataset version, model version, parameters, random seed, environment, metrics, start and end time, and artifact hashes.
-
-## Observability and Reproducibility
-
-Every run stores a full trace, which is essential both for debugging and for later writing up the results. A trace entry typically records the run and step IDs, the model used, the prompt version, an input hash, which tool was called and with what arguments, which documents were retrieved, the structured output of the step, its latency and token usage, and its final status. More broadly, anything that can change a result should be versioned: prompts, the model identifier, dataset version, retrieval parameters, reranker configuration, the code commit, package versions, the random seed, and the evaluation script version.
-
-## Deployment
-
-In development, the whole stack runs locally through Docker Compose — the web app, the API, PostgreSQL, a background worker, vector storage, and a local artifact directory all running together on one machine. In a production-style setup, requests come in through a reverse proxy to the web and API layer, long-running work is handed off to a job queue and picked up by an agent worker, which calls out to retrieval and LLM tools and to a separate sandbox worker for experiment execution, with PostgreSQL, the vector store, and object storage backing all of it. The API is designed to create a job and return a run ID immediately rather than holding an HTTP connection open for the duration of a long research task.
-
-## Research Paper
-
-The working title for the resulting paper is "ResearchPilot: An Evidence-Verified Agentic Framework for Reproducible AI-Assisted Research." The abstract should cover the problem, method, benchmark, and main result. The introduction should motivate why AI research assistance needs verification and reproducibility, and the related work section should cover RAG, agentic systems, other AI research agents, evaluation methodology, and provenance. A problem definition section should formalize what's meant by unsupported claims, evidence quality, and reproducibility. The method section explains the architecture and the Evidence-Verified Research Loop itself, while a separate system section gives enough implementation detail for someone else to reproduce the work. The benchmark section covers how tasks were constructed, along with the datasets, reference evidence, and rubric used. The experiments section lays out the baselines, configurations, metrics, and statistical protocol, and the results section presents the main comparison and the ablations. An error analysis section should walk through failure categories with concrete examples, and a limitations section should be honest about scope, model dependence, retrieval limitations, and cost. The paper closes with a conclusion summarizing findings and pointing toward future research.
-
-## Risks and Limitations
-
-A number of risks are worth planning for from the start. Hallucinated citations are mitigated by claim-level evidence verification and citation checks. Poor-quality retrieved evidence is mitigated by hybrid retrieval, reranking, and source-quality rules. Invalid experiments are caught by the sandbox itself, automated metric validation, and human review. Infinite agent loops are prevented with step, call, and time budgets plus explicit termination conditions. Because retrieved documents may contain prompt injection attempts, all retrieved text is treated as untrusted input rather than trusted instructions. Data leakage is prevented by keeping secrets out of prompts and enforcing access controls. Biased evaluation is mitigated by using a fixed benchmark, blind human rating, and multiple metrics rather than a single score. Overclaiming research novelty is guarded against through a thorough literature review and careful, precise wording. And reproducibility failures are mitigated by versioning datasets, prompts, code, environment, and seeds together.
-
-On the ethical side, the system should always clearly label AI-generated hypotheses, code, and conclusions as assistance rather than fact. It should never present generated research claims as independently verified scientific findings unless the verification process actually supports them.
-
-## Contributing
-
-To contribute, fork the repository and create a feature branch — typically `feature/<name>` for new functionality or `experiment/<name>` for research experiments. Commits follow a simple prefix convention: `feat:` for new functionality, `fix:` for bug fixes, `exp:` for experiment-related changes such as comparing reranker configurations, and `docs:` for documentation updates. Pull requests should target the `develop` branch, with `main` reserved for stable, released code and `paper/*` branches used for paper artifacts and analysis.
+- **Secrets** live only in `Backend/.env` (git-ignored); `.env.example` contains placeholders. The startup report and logs never print secret values. If a credential is ever committed, treat it as compromised: revoke and rotate it at the provider, remove it from the source, and rewrite history (e.g. `git filter-repo` or BFG) before force-pushing.
+- **Authentication** uses bcrypt password hashing and HS256 JWTs. Set `JWT_SECRET_KEY` in any shared or deployed environment; the per-process ephemeral fallback is for local development only.
+- **Generated experiment code** is treated as untrusted: it runs in a subprocess with a 15-second timeout, a restricted environment, and hashed artifacts (Docker isolation is a roadmap target).
+- **Retrieved text** is treated as untrusted input, never as instructions (prompt-injection defense).
 
 ## License
 
@@ -152,4 +277,4 @@ Add your chosen license here (for example, MIT or Apache 2.0).
 
 ## Status
 
-This project is under active development. See the Development Roadmap above for current progress against the planned phases.
+This project is under active development. The documentation above was verified against the codebase on 2026-10-26: every command was executed on Linux (Python 3.12.15, Node 24.21.0, npm 11.19.0), and the Windows PowerShell commands use standard, equivalent syntax. Backend behavior was confirmed via live requests to `/health`, `/docs`, and `/openapi.json`, and the frontend via `npm run dev`, `npm run build`, and `npm run preview`.

@@ -1,0 +1,35 @@
+{
+  "experiment_id": "exp_097dd5d9",
+  "run_id": "run_ad043f95",
+  "code_version": "sha256:7c422675259e",
+  "dataset_version": "academic_corpus_v1.0",
+  "model_version": "researchpilot_verifier_v1",
+  "parameters": {
+    "n_samples": 200,
+    "random_seed": 42,
+    "baseline_model": "Standard Unverified LLM",
+    "treatment_model": "ResearchPilot Evidence-Verified Loop",
+    "eval_metric": "accuracy_and_unsupported_rate"
+  },
+  "random_seed": 42,
+  "environment": {
+    "python_version": "3.12.15",
+    "platform": "linux",
+    "sandbox_isolation": "subprocess_restricted_fs",
+    "timeout_sec": 15
+  },
+  "metrics": {
+    "Answer Accuracy": 0.8633,
+    "Unsupported Claim Rate": 0.0702,
+    "Citation Precision": 0.932,
+    "Reproducibility Score": 0.998
+  },
+  "start_time": "2026-10-26T14:50:03.264651Z",
+  "end_time": "2026-10-26T14:50:04.751525Z",
+  "duration_ms": 1486,
+  "artifact_hashes": {
+    "code": "7c422675259edd720f6de8ed0b80ca0bb856d6eff5b21939c0d8ffd7998df663",
+    "plot": "cbfc3bbd962f69d98d6526dfa099331a6db329098ec051eae41f45bc7279781c"
+  },
+  "exit_code": 0
+}

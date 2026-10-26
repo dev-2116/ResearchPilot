@@ -1,0 +1,30 @@
+{
+  "accuracy": {
+    "name": "Answer Accuracy",
+    "value": 0.8633,
+    "baseline_value": 0.7076,
+    "delta_percentage": 22.01,
+    "unit": "ratio"
+  },
+  "unsupported_claim_rate": {
+    "name": "Unsupported Claim Rate",
+    "value": 0.0702,
+    "baseline_value": 0.2757,
+    "delta_percentage": -74.55,
+    "unit": "ratio"
+  },
+  "citation_precision": {
+    "name": "Citation Precision",
+    "value": 0.932,
+    "baseline_value": 0.615,
+    "delta_percentage": 51.54,
+    "unit": "ratio"
+  },
+  "reproducibility_score": {
+    "name": "Reproducibility Score",
+    "value": 0.998,
+    "baseline_value": 0.64,
+    "delta_percentage": 55.94,
+    "unit": "score"
+  }
+}
