@@ -226,6 +226,24 @@ def init_db():
         )
         """)
 
+        # Saved Papers Table (user library)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS saved_papers (
+            id TEXT PRIMARY KEY,
+            user_id TEXT DEFAULT 'user_default',
+            title TEXT NOT NULL,
+            authors TEXT,
+            publication_year INTEGER,
+            venue TEXT,
+            abstract TEXT,
+            identifier TEXT,
+            url TEXT,
+            source TEXT,
+            citation_count INTEGER DEFAULT 0,
+            saved_at TEXT NOT NULL
+        )
+        """)
+
         # Reports Table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS reports (
@@ -570,6 +588,230 @@ class DB:
             "provenance_hash": r["provenance_hash"],
             "generated_at": r["generated_at"]
         }
+
+    # ── Saved Papers (user library) ──────────────────────────────────────────
+
+    @staticmethod
+    def save_paper(paper_id: str, user_id: str, title: str, authors: Optional[str],
+                   publication_year: Optional[int], venue: Optional[str], abstract: Optional[str],
+                   identifier: Optional[str], url: Optional[str], source: Optional[str],
+                   citation_count: Optional[int]) -> Optional[Dict[str, Any]]:
+        """Persist a paper to the user's library. Returns None if it was already saved."""
+        with _lock:
+            conn = get_connection()
+            # Deduplicate per user on identifier when available, else on exact title.
+            if identifier:
+                existing = conn.execute(
+                    "SELECT id FROM saved_papers WHERE user_id = ? AND identifier = ?",
+                    (user_id, identifier),
+                ).fetchone()
+            else:
+                existing = conn.execute(
+                    "SELECT id FROM saved_papers WHERE user_id = ? AND title = ?",
+                    (user_id, title),
+                ).fetchone()
+            if existing:
+                conn.close()
+                return None
+            saved_at = datetime.utcnow().isoformat() + "Z"
+            conn.execute(
+                """INSERT INTO saved_papers
+                   (id, user_id, title, authors, publication_year, venue, abstract, identifier, url, source, citation_count, saved_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (paper_id, user_id, title, authors, publication_year, venue, abstract,
+                 identifier, url, source, citation_count or 0, saved_at),
+            )
+            conn.commit()
+            conn.close()
+            return {
+                "id": paper_id, "user_id": user_id, "title": title, "authors": authors,
+                "publication_year": publication_year, "venue": venue, "abstract": abstract,
+                "identifier": identifier, "url": url, "source": source,
+                "citation_count": citation_count or 0, "saved_at": saved_at,
+            }
+
+    @staticmethod
+    def list_saved_papers(user_id: str) -> List[Dict[str, Any]]:
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM saved_papers WHERE user_id = ? ORDER BY saved_at DESC",
+            (user_id,),
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def delete_saved_paper(paper_id: str, user_id: str) -> bool:
+        with _lock:
+            conn = get_connection()
+            cur = conn.execute(
+                "DELETE FROM saved_papers WHERE id = ? AND user_id = ?",
+                (paper_id, user_id),
+            )
+            conn.commit()
+            deleted = cur.rowcount > 0
+            conn.close()
+            return deleted
+
+    # ── Benchmark run persistence (real historical results) ─────────────────
+
+    @staticmethod
+    def save_benchmark_run(results: Dict[str, Any]) -> str:
+        """Persist a completed benchmark suite execution so its results survive
+        the process lifetime and become queryable history."""
+        run_id = f"br_{uuid.uuid4().hex[:12]}"
+        with _lock:
+            conn = get_connection()
+            conn.execute(
+                "INSERT INTO benchmark_runs (id, benchmark_id, timestamp, results_json) VALUES (?, ?, ?, ?)",
+                (
+                    run_id,
+                    results.get("benchmark_id", "unknown"),
+                    results.get("timestamp", datetime.utcnow().isoformat() + "Z"),
+                    json.dumps(results),
+                ),
+            )
+            conn.commit()
+            conn.close()
+        return run_id
+
+    @staticmethod
+    def list_benchmark_runs(limit: int = 10) -> List[Dict[str, Any]]:
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT id, benchmark_id, timestamp, results_json FROM benchmark_runs ORDER BY timestamp DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            entry = dict(r)
+            try:
+                entry["results"] = json.loads(entry.pop("results_json"))
+            except (TypeError, ValueError):
+                entry["results"] = {}
+            out.append(entry)
+        return out
+
+    # ── Aggregated statistics (real data for the dashboard) ──────────────────
+
+    @staticmethod
+    def get_dashboard_stats(recent_limit: int = 8) -> Dict[str, Any]:
+        conn = get_connection()
+
+        def scalar(sql: str, params: tuple = ()) -> int:
+            row = conn.execute(sql, params).fetchone()
+            return row[0] if row else 0
+
+        stats: Dict[str, Any] = {
+            "tasks_total": scalar("SELECT COUNT(*) FROM research_tasks"),
+            "runs_total": scalar("SELECT COUNT(*) FROM runs"),
+            "runs_completed": scalar("SELECT COUNT(*) FROM runs WHERE status = 'COMPLETED'"),
+            "runs_failed": scalar("SELECT COUNT(*) FROM runs WHERE status = 'FAILED'"),
+            "runs_active": scalar(
+                "SELECT COUNT(*) FROM runs WHERE status IN ('PENDING','RUNNING','WAITING_APPROVAL')"
+            ),
+            "claims_total": scalar("SELECT COUNT(*) FROM claims"),
+            "claims_supported": scalar(
+                "SELECT COUNT(*) FROM claims WHERE verification_status = 'SUPPORTED'"
+            ),
+            "claims_refuted": scalar(
+                "SELECT COUNT(*) FROM claims WHERE verification_status = 'REFUTED'"
+            ),
+            "claims_insufficient": scalar(
+                "SELECT COUNT(*) FROM claims WHERE verification_status NOT IN ('SUPPORTED','REFUTED')"
+            ),
+            "experiments_total": scalar("SELECT COUNT(*) FROM experiments"),
+            "experiments_completed": scalar(
+                "SELECT COUNT(*) FROM experiments WHERE status = 'COMPLETED'"
+            ),
+            "reports_total": scalar("SELECT COUNT(*) FROM reports"),
+            "documents_total": scalar("SELECT COUNT(*) FROM documents"),
+            "chunks_total": scalar("SELECT COUNT(*) FROM chunks"),
+            "benchmark_runs_total": scalar("SELECT COUNT(*) FROM benchmark_runs"),
+            "saved_papers_total": scalar("SELECT COUNT(*) FROM saved_papers"),
+            "task_status_distribution": [
+                {"status": r["status"], "count": r["cnt"]}
+                for r in conn.execute(
+                    "SELECT status, COUNT(*) AS cnt FROM research_tasks GROUP BY status ORDER BY cnt DESC"
+                ).fetchall()
+            ],
+            "task_domain_distribution": [
+                {"domain": r["domain"] or "Unspecified", "count": r["cnt"]}
+                for r in conn.execute(
+                    "SELECT domain, COUNT(*) AS cnt FROM research_tasks GROUP BY domain ORDER BY cnt DESC LIMIT 6"
+                ).fetchall()
+            ],
+            "activity_daily": [
+                {"date": r["d"], "tasks": r["cnt"]}
+                for r in conn.execute(
+                    """SELECT substr(created_at, 1, 10) AS d, COUNT(*) AS cnt
+                       FROM research_tasks
+                       WHERE substr(created_at, 1, 10) >= date('now', '-13 days')
+                       GROUP BY d ORDER BY d ASC"""
+                ).fetchall()
+            ],
+            "recent_tasks": [
+                dict(r)
+                for r in conn.execute(
+                    "SELECT * FROM research_tasks ORDER BY created_at DESC LIMIT ?",
+                    (recent_limit,),
+                ).fetchall()
+            ],
+        }
+        conn.close()
+        return stats
+
+    @staticmethod
+    def list_task_runs(task_id: str) -> List[Dict[str, Any]]:
+        """List runs for a task (lightweight: no per-step payloads)."""
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM runs WHERE task_id = ? ORDER BY started_at DESC",
+            (task_id,),
+        ).fetchall()
+        conn.close()
+        return [
+            {
+                "run_id": r["id"],
+                "task_id": r["task_id"],
+                "status": r["status"],
+                "current_step": r["current_step"],
+                "progress": r["progress"],
+                "execution_mode": r["execution_mode"],
+                "started_at": r["started_at"],
+                "ended_at": r["ended_at"],
+                "cost": {"tokens": r["cost_tokens"], "usd": r["cost_usd"]},
+                "evidence_count": r["evidence_count"],
+                "claims_count": r["claims_count"],
+                "latest_error": r["latest_error"],
+            }
+            for r in rows
+        ]
+
+    @staticmethod
+    def list_history(limit: int = 100) -> List[Dict[str, Any]]:
+        """Tasks enriched with their run summaries for the Research History page."""
+        conn = get_connection()
+        rows = conn.execute(
+            """SELECT t.*,
+                      (SELECT COUNT(*) FROM runs r WHERE r.task_id = t.id) AS run_count,
+                      (SELECT r.status FROM runs r WHERE r.task_id = t.id
+                        ORDER BY r.started_at DESC LIMIT 1) AS latest_run_status,
+                      (SELECT r.id FROM runs r WHERE r.task_id = t.id
+                        ORDER BY r.started_at DESC LIMIT 1) AS latest_run_id,
+                      (SELECT r.claims_count FROM runs r WHERE r.task_id = t.id
+                        ORDER BY r.started_at DESC LIMIT 1) AS latest_claims_count,
+                      (SELECT r.evidence_count FROM runs r WHERE r.task_id = t.id
+                        ORDER BY r.started_at DESC LIMIT 1) AS latest_evidence_count,
+                      (SELECT COUNT(*) FROM reports rep WHERE rep.run_id IN
+                        (SELECT r.id FROM runs r WHERE r.task_id = t.id)) AS report_count
+               FROM research_tasks t
+               ORDER BY t.created_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
 
     # ── User / Auth helpers ────────────────────────────────────────────────────
 

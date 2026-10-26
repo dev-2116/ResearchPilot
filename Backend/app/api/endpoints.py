@@ -148,11 +148,18 @@ def run_benchmark(req: BenchmarkRunRequest):
         cases_limit=req.cases_limit or 5,
         models=req.models_to_compare
     )
+    # Persist the measured results so they become queryable history
+    DB.save_benchmark_run(results)
     return BenchmarkResultResponse(**results)
 
 @router.get("/benchmarks/cases")
 def list_benchmark_cases():
     return BENCHMARK_SUITE_V1
+
+@router.get("/benchmarks/history")
+def list_benchmark_history(limit: int = 10):
+    """Previously executed benchmark suites, most recent first (real stored rows)."""
+    return {"runs": DB.list_benchmark_runs(limit=max(1, min(limit, 50)))}
 
 @router.get("/corpus")
 def list_corpus_documents():
@@ -268,4 +275,99 @@ def validate_midsem_query(payload: Dict[str, str]):
         "matched_question": matched,
         "message": msg
     }
+
+# --- Dashboard Statistics & History (real aggregates — no fabricated values) ---
+
+@router.get("/stats/dashboard")
+def get_dashboard_stats():
+    """
+    Aggregated, real counts from the database for the dashboard:
+    tasks / runs / claims / experiments / reports / corpus sizes,
+    status & domain distributions, and daily task activity.
+    Every number is computed from actual records; missing history yields empty lists.
+    """
+    stats = DB.get_dashboard_stats()
+    # The retrieval corpus lives in-memory (preloaded + imported papers);
+    # report the REAL active corpus size instead of the unused DB table.
+    stats["corpus_active"] = len(hybrid_retriever.papers)
+    return stats
+
+@router.get("/history")
+def get_history():
+    """
+    All research tasks enriched with their run summaries (run count, latest run
+    status, claims/evidence counts, report count) for the Research History page.
+    """
+    return DB.list_history()
+
+@router.get("/tasks/{task_id}/runs")
+def list_task_runs(task_id: str):
+    """All runs belonging to a task, newest first (lightweight, no step payloads)."""
+    if not DB.get_task(task_id):
+        raise HTTPException(status_code=404, detail="Task not found")
+    return DB.list_task_runs(task_id)
+
+# --- Saved Papers (user library) ---
+
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials
+from jose import jwt, JWTError
+from app.api.auth import bearer_scheme, _jwt_secret, ALGORITHM
+
+def _resolve_user_id(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)) -> str:
+    """Resolve the requesting user id from the JWT. Requests without a token are
+    treated as the shared local user ('user_default'); requests with an invalid
+    token are rejected rather than silently attributed to the wrong user."""
+    if credentials is None:
+        return "user_default"
+    try:
+        payload = jwt.decode(credentials.credentials, _jwt_secret(), algorithms=[ALGORITHM])
+        sub = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not sub:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return sub
+
+@router.post("/papers/save")
+def save_paper(payload: Dict[str, Any], user_id: str = Depends(_resolve_user_id)):
+    """Save a paper (from literature search) to the user's library."""
+    title = (payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Paper title is required")
+    paper_id = f"sp_{uuid.uuid4().hex[:12]}"
+    year_raw = payload.get("publication_year")
+    try:
+        year_val = int(year_raw) if year_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        year_val = None
+    saved = DB.save_paper(
+        paper_id=paper_id,
+        user_id=user_id,
+        title=title,
+        authors=payload.get("authors"),
+        publication_year=year_val,
+        venue=payload.get("venue"),
+        abstract=payload.get("abstract"),
+        identifier=payload.get("identifier"),
+        url=payload.get("url"),
+        source=payload.get("source"),
+        citation_count=payload.get("citation_count"),
+    )
+    if saved is None:
+        return {"status": "already_saved", "message": "This paper is already in your library."}
+    return {"status": "success", "paper": saved, "message": "Paper saved to your library."}
+
+@router.get("/papers/saved")
+def list_saved_papers(user_id: str = Depends(_resolve_user_id)):
+    """List the requesting user's saved papers, newest first."""
+    return {"papers": DB.list_saved_papers(user_id), "total": len(DB.list_saved_papers(user_id))}
+
+@router.delete("/papers/saved/{paper_id}")
+def delete_saved_paper(paper_id: str, user_id: str = Depends(_resolve_user_id)):
+    """Remove a paper from the requesting user's library."""
+    deleted = DB.delete_saved_paper(paper_id, user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Saved paper not found")
+    return {"status": "success", "message": "Paper removed from your library."}
 

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -62,6 +63,7 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_PREFIX)
 app.include_router(auth_router, prefix=settings.API_PREFIX)
 
+
 @app.get("/health")
 def health_check():
     return {
@@ -70,6 +72,14 @@ def health_check():
         "version": settings.VERSION,
         "database": "sqlite_ready"
     }
+
+
+# Serve the built frontend (Frontend/dist) when present, so the whole app runs
+# from a single origin/port. Mounted AFTER all API routes so /api and /health
+# always take priority over static files.
+_FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "Frontend" / "dist"
+if _FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=str(_FRONTEND_DIST), html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
