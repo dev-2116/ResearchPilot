@@ -1,9 +1,11 @@
 import asyncio
 import hashlib
+import os
 import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from app.core.config import ARTIFACTS_DIR
 from app.db.database import DB
 from app.services.retrieval import hybrid_retriever
 from app.services.verifier import evidence_verifier
@@ -51,14 +53,13 @@ class AgentOrchestrator:
                 ],
                 "retrieval_strategy": "Hybrid BM25 + Dense Semantic Fusion with RRF",
                 "estimated_steps": 10,
-                "domain": domain,
-                "milestone": "Core Evidence Prototype"
+                "domain": domain
             }
             step_lat = int((time.time() - step_start) * 1000)
             DB.add_step(
                 run_id=run_id, step_type="PLAN", step_index=1,
                 input_data={"question": question, "domain": domain, "constraints": constraints},
-                output_data=plan_output, status="SUCCESS", latency_ms=step_lat, token_usage=450
+                output_data=plan_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Step 2: RETRIEVE
@@ -83,7 +84,7 @@ class AgentOrchestrator:
             DB.add_step(
                 run_id=run_id, step_type="RETRIEVE", step_index=2,
                 input_data={"query": question, "top_k": 5},
-                output_data=retrieval_output, status="SUCCESS", latency_ms=step_lat, token_usage=720
+                output_data=retrieval_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Step 3: EXTRACT_EVIDENCE
@@ -105,7 +106,7 @@ class AgentOrchestrator:
             DB.add_step(
                 run_id=run_id, step_type="EXTRACT_EVIDENCE", step_index=3,
                 input_data={"candidate_count": len(retrieved_docs)},
-                output_data=evidence_output, status="SUCCESS", latency_ms=step_lat, token_usage=880
+                output_data=evidence_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Step 4: VERIFY
@@ -126,12 +127,9 @@ class AgentOrchestrator:
                     if s_list:
                         candidate_claims.append(s_list[0])
             
-            if not candidate_claims:
-                candidate_claims = [
-                    f"Peer-reviewed academic research provides empirical evidence regarding: {question}.",
-                    f"Evaluations in {domain} confirm measurable differences across baseline and proposed experimental configurations.",
-                    f"Evidence-grounded verification ensures auditable conclusions with strict citation provenance."
-                ]
+            # Honesty rule: if nothing could be extracted, verify zero claims rather
+            # than fabricating placeholder claim text. Downstream metrics and the
+            # report will truthfully reflect an evidence-starved run.
             
             verified_claims = evidence_verifier.verify_claims_against_evidence(candidate_claims, retrieved_docs)
             for vc in verified_claims:
@@ -155,7 +153,7 @@ class AgentOrchestrator:
                 run_id=run_id, step_type="VERIFY", step_index=4,
                 input_data={"claims_count": len(candidate_claims)},
                 output_data={"verified_claims_count": len(verified_claims), "metrics": v_metrics},
-                status="SUCCESS", latency_ms=step_lat, token_usage=1150
+                status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Step 5: DESIGN_EXPERIMENT
@@ -184,7 +182,7 @@ class AgentOrchestrator:
                 run_id=run_id, step_type="DESIGN_EXPERIMENT", step_index=5,
                 input_data={"hypothesis": hypothesis, "baseline": baseline_name, "proposed": proposed_name},
                 output_data={"experiment_id": exp_id, "variables": variables},
-                status="SUCCESS", latency_ms=step_lat, token_usage=640
+                status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Step 6: GENERATE_CODE
@@ -197,7 +195,7 @@ class AgentOrchestrator:
                 run_id=run_id, step_type="GENERATE_CODE", step_index=6,
                 input_data={"experiment_id": exp_id, "language": "Python 3.11"},
                 output_data={"code_length_lines": len(code.splitlines()), "code_hash": hashlib.sha256(code.encode()).hexdigest()[:12]},
-                status="SUCCESS", latency_ms=step_lat, token_usage=890
+                status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
             # Check Gated Approval Mode
@@ -224,7 +222,7 @@ class AgentOrchestrator:
         )
         
         DB.save_experiment(
-            exp_id=exp_id, run_id=run_id, hypothesis=exec_res["manifest"]["parameters"].get("hypothesis", "Verified AI Experiment"),
+            exp_id=exp_id, run_id=run_id, hypothesis=exec_res["manifest"]["parameters"].get("hypothesis") or "Not recorded",
             variables=variables, baseline="Standard LLM", proposed="ResearchPilot",
             code=code, status=exec_res["status"], stdout=exec_res["stdout"],
             stderr=exec_res["stderr"], exit_code=exec_res["exit_code"],
@@ -244,7 +242,9 @@ class AgentOrchestrator:
             DB.save_artifact(
                 artifact_id=f"art_chart_{exp_id}", run_id=run_id, name="experiment_results.png",
                 path=f"artifacts/{run_id}/experiment_results.png", art_type="chart",
-                file_hash=exec_res["manifest"]["artifact_hashes"].get("plot", "hash_na"), file_size=48200
+                file_hash=exec_res["manifest"]["artifact_hashes"].get("plot", "hash_na"),
+                file_size=os.path.getsize(ARTIFACTS_DIR / run_id / "experiment_results.png")
+                if (ARTIFACTS_DIR / run_id / "experiment_results.png").exists() else 0
             )
 
         step_lat = int((time.time() - step_start) * 1000)
@@ -252,7 +252,7 @@ class AgentOrchestrator:
             run_id=run_id, step_type="EXECUTE", step_index=7,
             input_data={"sandbox_timeout_sec": 15, "environment": "subprocess_restricted_fs"},
             output_data={"status": exec_res["status"], "duration_ms": exec_res["duration_ms"], "exit_code": exec_res["exit_code"]},
-            status="SUCCESS", latency_ms=step_lat, token_usage=120
+            status="SUCCESS", latency_ms=step_lat, token_usage=0
         )
 
         # Step 8: EVALUATE
@@ -260,16 +260,18 @@ class AgentOrchestrator:
         DB.update_run(run_id, current_step="EVALUATE", progress=0.80)
         await asyncio.sleep(0.6)
         
+        seed_used = exec_res["manifest"]["parameters"].get("random_seed", "unspecified")
         eval_output = {
             "metrics_evaluated": len(exec_res.get("metrics", [])),
-            "reproducibility_check": "PASS (deterministic seed 42)",
+            "random_seed": seed_used,
+            "reproducibility_note": "Executed once in the deterministic sandbox with a fixed seed; no independent re-run was performed.",
             "metrics_summary": {m["name"]: m["value"] for m in exec_res.get("metrics", [])}
         }
         step_lat = int((time.time() - step_start) * 1000)
         DB.add_step(
             run_id=run_id, step_type="EVALUATE", step_index=8,
             input_data={"experiment_id": exp_id},
-            output_data=eval_output, status="SUCCESS", latency_ms=step_lat, token_usage=510
+            output_data=eval_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
         )
 
         # Step 9: REVIEW
@@ -277,16 +279,21 @@ class AgentOrchestrator:
         DB.update_run(run_id, current_step="REVIEW", progress=0.88)
         await asyncio.sleep(0.5)
         
+        status_counts = {"SUPPORTED": 0, "REFUTED": 0, "INSUFFICIENT_EVIDENCE": 0}
+        for vc in verified_claims:
+            status_counts[vc["verification_status"]] = status_counts.get(vc["verification_status"], 0) + 1
         review_output = {
-            "evidence_loop_consistency": "VERIFIED_SUPPORTED",
-            "empirical_hypothesis_alignment": "CONFIRMED",
-            "conclusion_action": "PROCEED_TO_FINAL_REPORT"
+            "claims_supported": status_counts["SUPPORTED"],
+            "claims_refuted": status_counts["REFUTED"],
+            "claims_insufficient_evidence": status_counts["INSUFFICIENT_EVIDENCE"],
+            "experiment_status": exec_res["status"],
+            "conclusion_action": "PROCEED_TO_FINAL_REPORT" if exec_res["status"] == "COMPLETED" else "REPORT_WITH_EXPERIMENT_WARNINGS"
         }
         step_lat = int((time.time() - step_start) * 1000)
         DB.add_step(
             run_id=run_id, step_type="REVIEW", step_index=9,
-            input_data={"claims_status": "SUPPORTED", "experiment_status": "COMPLETED"},
-            output_data=review_output, status="SUCCESS", latency_ms=step_lat, token_usage=430
+            input_data={"claims_total": len(verified_claims), "experiment_status": exec_res["status"]},
+            output_data=review_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
         )
 
         # Step 10: REPORT
@@ -314,7 +321,7 @@ class AgentOrchestrator:
             run_id=run_id, step_type="REPORT", step_index=10,
             input_data={"task_id": task_id, "provenance_tracking": True},
             output_data={"title": report_data["title"], "provenance_hash": report_data["provenance_hash"]},
-            status="SUCCESS", latency_ms=step_lat, token_usage=1420
+            status="SUCCESS", latency_ms=step_lat, token_usage=0
         )
 
         # COMPLETE
