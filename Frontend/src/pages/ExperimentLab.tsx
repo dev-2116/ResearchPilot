@@ -1,23 +1,19 @@
 import React, { useState } from 'react';
 import {
-  FlaskConical,
-  Play,
-  Download,
-  Copy,
-  Check,
-  Terminal,
   BarChart2,
+  Check,
+  Copy,
+  Download,
+  FlaskConical,
   FileCode,
-  Shield,
   Layers,
-  Cpu,
-  Clock,
-  Sparkles,
-  CheckCircle2,
   Lock,
-  RefreshCw
+  Play,
+  RefreshCw,
+  Terminal,
 } from 'lucide-react';
-import { Experiment, Metric } from '../types';
+import { Experiment } from '../types';
+import { EmptyState, SectionHeader, StatusBadge, fmtDuration } from '../components/ui';
 
 interface ExperimentLabProps {
   experiment: Experiment | null;
@@ -25,25 +21,26 @@ interface ExperimentLabProps {
   isExecuting: boolean;
 }
 
-export const ExperimentLab: React.FC<ExperimentLabProps> = ({
-  experiment,
-  onReexecute,
-  isExecuting,
-}) => {
+export const ExperimentLab: React.FC<ExperimentLabProps> = ({ experiment, onReexecute, isExecuting }) => {
   const [activeView, setActiveView] = useState<'code' | 'manifest'>('code');
   const [copied, setCopied] = useState(false);
 
   if (!experiment) {
     return (
-      <div className="page-view" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <FlaskConical size={48} color="var(--accent-indigo)" style={{ margin: '0 auto 16px', opacity: 0.6 }} />
-        <h2 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', marginBottom: '8px' }}>No Experiment Generated Yet</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 24px' }}>
-          Launch a research task to generate an empirical hypothesis, reproducible python code, and isolated sandboxed execution.
-        </p>
+      <div className="page-view">
+        <div className="card">
+          <EmptyState
+            icon={<FlaskConical size={22} />}
+            title="No experiment generated yet"
+            description="When an investigation reaches its DESIGN_EXPERIMENT stage, the agent generates an empirical hypothesis and reproducible Python code that is executed in an isolated subprocess sandbox. Select or launch a run from the Research Workspace first."
+          />
+        </div>
       </div>
     );
   }
+
+  const seed = experiment.variables?.random_seed;
+  const hasMetrics = Array.isArray(experiment.metrics) && experiment.metrics.length > 0;
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(experiment.code);
@@ -59,190 +56,166 @@ export const ExperimentLab: React.FC<ExperimentLabProps> = ({
     a.href = url;
     a.download = `manifest_${experiment.id}.json`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="page-view">
-      {/* Header Info */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span className="mono badge badge-indigo">{experiment.id}</span>
-              <span className={`badge ${experiment.status === 'COMPLETED' ? 'badge-emerald' : 'badge-amber'}`}>
-                {experiment.status}
-              </span>
-              <span className="badge badge-cyan">Deterministic Seed: {experiment.variables?.random_seed || 42}</span>
-              <span className="badge badge-slate"><Lock size={12} /> Sandbox Subprocess Isolated</span>
+      {/* Header */}
+      <div className="card">
+        <SectionHeader
+          icon={<FlaskConical size={17} />}
+          title="Empirical Sandbox & Reproducible Experiment Lab"
+          right={
+            <div style={{ display: 'flex', gap: 9, flexShrink: 0 }}>
+              <button className="btn btn-secondary" onClick={handleDownloadManifest} disabled={!experiment.manifest}>
+                <Download size={14} /> Manifest JSON
+              </button>
+              <button className="btn btn-primary" onClick={() => onReexecute(experiment.id)} disabled={isExecuting}>
+                {isExecuting ? <RefreshCw size={14} className="spin" /> : <Play size={14} />}
+                <span>{isExecuting ? 'Executing…' : 'Re-run in Sandbox'}</span>
+              </button>
             </div>
-            <h2 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-              Empirical Sandbox & Reproducible Experiment Lab
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem' }}>
-              Hypothesis: <strong style={{ color: 'var(--text-primary)' }}>"{experiment.hypothesis}"</strong>
-            </p>
-          </div>
+          }
+        />
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-secondary" onClick={handleDownloadManifest} disabled={!experiment.manifest}>
-              <Download size={15} />
-              <span>Download Manifest JSON</span>
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => onReexecute(experiment.id)}
-              disabled={isExecuting}
-            >
-              {isExecuting ? (
-                <>
-                  <RefreshCw size={15} className="spin" />
-                  <span>Executing in Sandbox...</span>
-                </>
-              ) : (
-                <>
-                  <Play size={15} />
-                  <span>Re-run in Sandbox</span>
-                </>
-              )}
-            </button>
-          </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, margin: '10px 0 12px' }}>
+          <span className="mono badge badge-slate">{experiment.id}</span>
+          <StatusBadge status={experiment.status} />
+          {seed !== undefined && seed !== null && (
+            <span className="badge badge-cyan">Random seed: {String(seed)}</span>
+          )}
+          <span className="badge badge-slate"><Lock size={11} /> Subprocess sandbox</span>
+          {typeof experiment.duration_ms === 'number' && (
+            <span className="badge badge-slate">Last duration: {fmtDuration(experiment.duration_ms)}</span>
+          )}
         </div>
+
+        <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+          Hypothesis: <strong style={{ color: 'var(--text-primary)' }}>“{experiment.hypothesis}”</strong>
+        </p>
+        {(experiment.baseline_method || experiment.proposed_method) && (
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: 5 }}>
+            {experiment.baseline_method && <>Baseline: <span className="mono">{experiment.baseline_method}</span></>}
+            {experiment.baseline_method && experiment.proposed_method && ' · '}
+            {experiment.proposed_method && <>Proposed: <span className="mono">{experiment.proposed_method}</span></>}
+          </p>
+        )}
       </div>
 
-      {/* Metrics Delta Strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        {experiment.metrics.map((m) => {
-          const isPositiveBetter = m.name !== 'Unsupported Claim Rate';
-          const isGood = isPositiveBetter ? (m.delta_percentage ?? 0) > 0 : (m.delta_percentage ?? 0) < 0;
-          return (
-            <div key={m.id || m.name} className="card" style={{ padding: '18px 20px' }}>
-              <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 700, display: 'block', marginBottom: '6px', letterSpacing: '0.03em' }}>
-                {m.name.toUpperCase()}
-              </span>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                <span className="mono" style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {m.unit === 'ratio' ? `${(m.value * 100).toFixed(1)}%` : m.value.toFixed(3)}
+      {/* Metrics — only real recorded metrics */}
+      {hasMetrics && (
+        <div className="stat-grid-4" style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(experiment.metrics.length, 4)}, 1fr)`, gap: 14 }}>
+          {experiment.metrics.map((m) => (
+            <div key={m.id || m.name} className="stat-card">
+              <span className="stat-label">{m.name}</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                <span className="mono" style={{ fontSize: '1.55rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {m.unit === 'ratio' ? `${(m.value * 100).toFixed(1)}%` : Number(m.value).toFixed(3)}
                 </span>
-                {m.delta_percentage !== undefined && (
-                  <span className={`badge ${isGood ? 'badge-emerald' : 'badge-rose'}`} style={{ fontSize: '0.72rem' }}>
-                    {m.delta_percentage > 0 ? `+${m.delta_percentage}%` : `${m.delta_percentage}%`}
+                {m.delta_percentage !== undefined && m.delta_percentage !== null && (
+                  <span className={`badge ${m.delta_percentage > 0 ? 'badge-emerald' : m.delta_percentage < 0 ? 'badge-rose' : 'badge-slate'}`}>
+                    {m.delta_percentage > 0 ? '+' : ''}{m.delta_percentage}%
                   </span>
                 )}
               </div>
-              {m.baseline_value !== undefined && (
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
-                  Baseline: {m.unit === 'ratio' ? `${(m.baseline_value * 100).toFixed(1)}%` : m.baseline_value.toFixed(3)}
+              {m.baseline_value !== undefined && m.baseline_value !== null && (
+                <span className="stat-hint">
+                  Baseline: {m.unit === 'ratio' ? `${(m.baseline_value * 100).toFixed(1)}%` : Number(m.baseline_value).toFixed(3)}
                 </span>
               )}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Main Grid: Code & Manifest on Left / Console Output & Matplotlib Chart on Right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px' }}>
-        {/* Code & Manifest Tabs */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="card-header" style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                className={`btn ${activeView === 'code' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-                onClick={() => setActiveView('code')}
-              >
-                <FileCode size={14} />
-                <span>Generated Experiment Code (Python)</span>
+      {/* Main grid */}
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr', gap: 20, alignItems: 'start' }}>
+        {/* Code / manifest */}
+        <div className="card">
+          <div className="card-header" style={{ marginBottom: 13 }}>
+            <div className="seg-group">
+              <button className={`seg-btn ${activeView === 'code' ? 'active' : ''}`} onClick={() => setActiveView('code')}>
+                <FileCode size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Experiment Code
               </button>
-              <button
-                className={`btn ${activeView === 'manifest' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '6px 14px' }}
-                onClick={() => setActiveView('manifest')}
-              >
-                <Layers size={14} />
-                <span>Reproducibility Manifest</span>
+              <button className={`seg-btn ${activeView === 'manifest' ? 'active' : ''}`} onClick={() => setActiveView('manifest')} disabled={!experiment.manifest}>
+                <Layers size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Manifest
               </button>
             </div>
-
             {activeView === 'code' && (
-              <button className="btn btn-secondary" onClick={handleCopyCode} style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                {copied ? <Check size={14} color="var(--accent-emerald)" /> : <Copy size={14} />}
+              <button className="btn btn-secondary" onClick={handleCopyCode} style={{ padding: '5px 11px', fontSize: '0.74rem' }}>
+                {copied ? <Check size={13} color="var(--accent-emerald)" /> : <Copy size={13} />}
                 <span>{copied ? 'Copied' : 'Copy'}</span>
               </button>
             )}
           </div>
 
           {activeView === 'code' ? (
-            <div className="terminal-window" style={{ flex: 1, minHeight: '380px' }}>
+            <div className="terminal-window">
               <div className="terminal-header">
                 <div className="terminal-dots">
-                  <span className="terminal-dot dot-red"></span>
-                  <span className="terminal-dot dot-yellow"></span>
-                  <span className="terminal-dot dot-green"></span>
+                  <span className="terminal-dot dot-red" /><span className="terminal-dot dot-yellow" /><span className="terminal-dot dot-green" />
                 </div>
-                <span className="mono" style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-                  isolated_sandbox_{experiment.id}.py
+                <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                  sandbox_{experiment.id}.py
                 </span>
-                <span className="badge badge-emerald" style={{ fontSize: '0.62rem' }}>Strict Syntax Passed</span>
               </div>
-              <pre className="terminal-body" style={{ maxHeight: '380px', color: '#e2e8f0', fontSize: '0.8rem' }}>
-                {experiment.code}
-              </pre>
+              <pre className="terminal-body">{experiment.code}</pre>
+            </div>
+          ) : experiment.manifest ? (
+            <div className="terminal-window">
+              <div className="terminal-header">
+                <div className="terminal-dots">
+                  <span className="terminal-dot dot-red" /><span className="terminal-dot dot-yellow" /><span className="terminal-dot dot-green" />
+                </div>
+                <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>manifest.json</span>
+              </div>
+              <pre className="terminal-body">{JSON.stringify(experiment.manifest, null, 2)}</pre>
             </div>
           ) : (
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', maxHeight: '420px', overflowY: 'auto' }}>
-              <pre className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
-                {JSON.stringify(experiment.manifest, null, 2)}
-              </pre>
-            </div>
+            <EmptyState
+              icon={<Layers size={18} />}
+              title="No manifest recorded"
+              description="A reproducibility manifest is written once the experiment has executed in the sandbox."
+            />
           )}
         </div>
 
-        {/* Execution Output Console & Matplotlib Chart */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Console stdout */}
-          <div className="card" style={{ padding: '20px' }}>
-            <div className="card-header" style={{ marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Terminal size={16} color="var(--accent-primary)" />
-                <h3 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                  Sandbox Subprocess Console
-                </h3>
-              </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <span className="mono badge badge-emerald" style={{ fontSize: '0.68rem' }}>
-                  Exit Code: {experiment.exit_code ?? 0}
-                </span>
-                <span className="mono badge badge-slate" style={{ fontSize: '0.68rem' }}>
-                  {experiment.duration_ms || 420}ms
-                </span>
-              </div>
+        {/* Console + chart */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card">
+            <SectionHeader
+              icon={<Terminal size={15} />}
+              title="Sandbox Console"
+              right={
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <span className={`mono badge ${experiment.exit_code === 0 ? 'badge-emerald' : experiment.exit_code === undefined || experiment.exit_code === null ? 'badge-slate' : 'badge-rose'}`}>
+                    {experiment.exit_code === undefined || experiment.exit_code === null ? 'Not executed yet' : `Exit ${experiment.exit_code}`}
+                  </span>
+                </div>
+              }
+            />
+            <div className="terminal-window" style={{ marginTop: 10 }}>
+              <pre className="terminal-body" style={{ maxHeight: 200 }}>
+                {experiment.stdout || experiment.stderr || '[no output recorded — the experiment has not executed yet]'}
+              </pre>
             </div>
-
-            <div className="terminal-window">
-              <div className="terminal-body" style={{ maxHeight: '180px', fontSize: '0.78rem', color: '#38bdf8' }}>
-                {experiment.stdout || '[Sandbox Engine initialized] - Executing statistical simulation...\n[Metrics derived] Experiment completed with exit code 0.'}
-              </div>
-            </div>
+            {experiment.stderr && experiment.stdout && (
+              <p className="form-error-text" style={{ marginTop: 8 }}>
+                stderr output detected — see the full log above.
+              </p>
+            )}
           </div>
 
-          {/* Generated Figure Chart */}
           {experiment.chart_url && (
-            <div className="card" style={{ padding: '20px', textAlign: 'center' }}>
-              <div className="card-header" style={{ marginBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BarChart2 size={16} color="var(--accent-primary)" />
-                  <h3 style={{ fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                    Automated Visualization Artifact
-                  </h3>
-                </div>
-                <span className="badge badge-indigo" style={{ fontSize: '0.68rem' }}>Matplotlib PNG</span>
-              </div>
-              <div style={{ background: '#f8fafc', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
-                <img
-                  src={experiment.chart_url}
-                  alt="Experiment Figure"
-                  style={{ maxWidth: '100%', height: 'auto', borderRadius: 'var(--radius-sm)' }}
-                />
+            <div className="card">
+              <SectionHeader
+                icon={<BarChart2 size={15} />}
+                title="Generated Figure"
+                right={<span className="badge badge-slate">Matplotlib PNG</span>}
+              />
+              <div style={{ background: 'var(--bg-inset)', padding: 12, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                <img src={experiment.chart_url} alt="Experiment figure generated by the sandbox" style={{ maxWidth: '100%', height: 'auto', borderRadius: 'var(--radius-sm)' }} />
               </div>
             </div>
           )}

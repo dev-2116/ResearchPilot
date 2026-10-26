@@ -1,15 +1,13 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Activity,
   LogOut,
-  ShieldCheck,
-  Sparkles,
-  Terminal,
+  Menu,
+  Plus,
   User,
-  FlaskConical
 } from 'lucide-react';
-import { Run } from '../types';
-import { AuthUser } from '../types';
+import { AuthUser, Run } from '../types';
+import { StatusBadge } from './ui';
 
 interface NavbarProps {
   activeRun: Run | null;
@@ -17,7 +15,15 @@ interface NavbarProps {
   apiConnected: boolean;
   user?: AuthUser | null;
   onLogout?: () => void;
+  onToggleSidebar?: () => void;
 }
+
+const SHORT_STEP: Record<string, string> = {
+  TASK_CREATED: 'Queued', PLAN: 'Planning', RETRIEVE: 'Retrieving',
+  EXTRACT_EVIDENCE: 'Extracting', VERIFY: 'Verifying', DESIGN_EXPERIMENT: 'Designing',
+  GENERATE_CODE: 'Generating code', EXECUTE: 'Executing', EVALUATE: 'Evaluating',
+  REVIEW: 'Reviewing', REPORT: 'Reporting', COMPLETE: 'Complete',
+};
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeRun,
@@ -25,68 +31,99 @@ export const Navbar: React.FC<NavbarProps> = ({
   apiConnected,
   user,
   onLogout,
+  onToggleSidebar,
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const initials = (user?.full_name || '?')
+    .split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+
   return (
     <header className="top-header no-print">
-      <div className="header-title" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', fontWeight: 600 }}>System State:</span>
-          <span className={`badge ${apiConnected ? 'badge-emerald' : 'badge-rose'}`}>
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: apiConnected ? 'var(--accent-emerald)' : 'var(--accent-rose)' }}></span>
-            {apiConnected ? 'Backend Operational' : 'Offline / Reconnecting'}
-          </span>
-        </div>
+      <div className="header-title">
+        <button
+          className="btn btn-ghost"
+          onClick={onToggleSidebar}
+          aria-label="Toggle navigation sidebar"
+          style={{ padding: 7, display: 'none' }}
+          id="sidebar-toggle"
+        >
+          <Menu size={18} />
+        </button>
+
+        <span className="header-status-badge" title={apiConnected ? 'Backend API is reachable' : 'Backend API is unreachable'}>
+          <Activity size={13} color={apiConnected ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+          {apiConnected ? 'API Connected' : 'API Offline'}
+        </span>
 
         {activeRun && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '16px', borderLeft: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Active Investigation:</span>
-            <span className="mono badge badge-indigo" style={{ fontWeight: 700 }}>{activeRun.run_id}</span>
-            <span className={`badge ${activeRun.status === 'COMPLETED' ? 'badge-emerald' : activeRun.status === 'WAITING_APPROVAL' ? 'badge-amber' : activeRun.status === 'FAILED' ? 'badge-rose' : 'badge-cyan'}`}>
-              {activeRun.status} ({activeRun.current_step})
+          <span className="header-run-chip">
+            <span style={{ color: 'var(--text-light)' }}>Active run</span>
+            <span className="mono" style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {activeRun.run_id}
             </span>
-          </div>
+            <StatusBadge status={activeRun.status}>
+              {activeRun.status === 'RUNNING'
+                ? (SHORT_STEP[activeRun.current_step] || activeRun.current_step)
+                : activeRun.status.replace(/_/g, ' ')}
+            </StatusBadge>
+          </span>
         )}
       </div>
 
-      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-            <ShieldCheck size={15} color="var(--accent-emerald)" />
-            <span style={{ fontWeight: 600 }}>NLI Verifier</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#ffffff', padding: '5px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
-            <Terminal size={15} color="var(--accent-primary)" />
-            <span style={{ fontWeight: 600 }}>Subprocess Sandbox</span>
-          </div>
+      <div className="header-actions">
+        <div ref={menuRef} style={{ position: 'relative' }}>
+          <button
+            className="navbar-user-area"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Account menu"
+            style={{ cursor: 'pointer', fontFamily: 'var(--font-body)' }}
+          >
+            <span className="navbar-user-avatar">{initials || <User size={14} />}</span>
+            <span className="navbar-user-info">
+              <span className="navbar-user-name">{user?.full_name}</span>
+              <span className="navbar-user-role">{user?.role}</span>
+            </span>
+          </button>
+
+          {menuOpen && (
+            <div
+              role="menu"
+              style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 8px)', minWidth: 210,
+                background: 'var(--bg-surface)', border: '1px solid var(--border-medium)',
+                borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)', padding: 6, zIndex: 80,
+              }}
+            >
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 4 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>{user?.full_name}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
+              </div>
+              <button
+                role="menuitem"
+                className="btn btn-ghost"
+                style={{ width: '100%', justifyContent: 'flex-start', fontSize: '0.8rem' }}
+                onClick={() => { setMenuOpen(false); onLogout?.(); }}
+              >
+                <LogOut size={14} /> Sign Out
+              </button>
+            </div>
+          )}
         </div>
 
-        {user && (
-          <div className="navbar-user-area">
-            <div className="navbar-user-avatar">
-              <User size={15} />
-            </div>
-            <div className="navbar-user-info">
-              <span className="navbar-user-name">{user.full_name}</span>
-              <span className="navbar-user-role">{user.role}</span>
-            </div>
-            <button
-              id="logout-btn"
-              className="navbar-logout-btn"
-              onClick={onLogout}
-              title="Sign out of researcher account"
-            >
-              <LogOut size={14} />
-              <span>Sign Out</span>
-            </button>
-          </div>
-        )}
-
-        <button
-          className="btn btn-primary"
-          onClick={onOpenNewModal}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 18px', fontWeight: 600 }}
-        >
-          <Sparkles size={16} />
+        <button className="btn btn-primary" onClick={onOpenNewModal} style={{ padding: '8px 16px' }}>
+          <Plus size={15} />
           <span>New Investigation</span>
         </button>
       </div>

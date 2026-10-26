@@ -110,8 +110,8 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 50%, #eff6ff 100%)',
-          borderColor: '#bbf7d0',
+          background: 'linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(96,165,250,0.05) 55%, rgba(17,20,23,0) 100%), var(--bg-card)',
+          borderColor: 'var(--accent-emerald-border)',
           position: 'relative',
           overflow: 'hidden',
           boxShadow: '0 4px 20px -2px rgba(16, 185, 129, 0.08)',
@@ -131,7 +131,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                 <Terminal size={13} /> Multi-Source Literature Grounding
               </span>
             </div>
-            <h2 style={{ fontSize: '1.75rem', color: '#0f172a', fontWeight: 800, marginBottom: '6px' }}>
+            <h2 style={{ fontSize: '1.75rem', color: 'var(--text-primary)', fontWeight: 800, marginBottom: '6px' }}>
               ResearchPilot: Evidence-Verified Research Agent
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '780px', lineHeight: 1.5 }}>
@@ -141,7 +141,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-            <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-md)', padding: '8px 14px', fontSize: '0.8rem' }}>
+            <div style={{ background: 'var(--bg-card-subtle)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '8px 14px', fontSize: '0.8rem' }}>
               <span style={{ color: 'var(--text-muted)' }}>Engine Status: </span>
               <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>● Fully Operational (Open Domain)</span>
             </div>
@@ -213,8 +213,8 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                 fontSize: '0.73rem',
                 padding: '3px 9px',
                 borderRadius: '12px',
-                border: '1px solid #e2e8f0',
-                background: '#f8fafc',
+                border: '1px solid var(--border-subtle)',
+                background: 'var(--bg-card-subtle)',
                 color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
@@ -257,7 +257,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                   padding: '3px 10px',
                   borderRadius: 'var(--radius-sm)',
                   border: activeDomainFilter === cat ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                  background: activeDomainFilter === cat ? '#eff6ff' : '#ffffff',
+                  background: activeDomainFilter === cat ? 'var(--accent-primary-light)' : 'var(--bg-card-subtle)',
                   color: activeDomainFilter === cat ? 'var(--accent-primary)' : 'var(--text-secondary)',
                   fontWeight: activeDomainFilter === cat ? 700 : 500,
                   cursor: 'pointer',
@@ -281,7 +281,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                   padding: '16px 18px',
                   cursor: 'pointer',
                   border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                  background: isSelected ? '#f0f7ff' : '#ffffff',
+                  background: isSelected ? 'var(--accent-primary-light)' : 'var(--bg-card-subtle)',
                   transition: 'all 0.2s ease',
                   position: 'relative',
                   display: 'flex',
@@ -357,9 +357,9 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
           <div
             className="card"
             style={{
-              borderColor: '#93c5fd',
-              background: '#ffffff',
-              boxShadow: '0 4px 16px -2px rgba(59, 130, 246, 0.08)',
+              borderColor: 'var(--accent-primary-border)',
+              background: 'var(--bg-card-subtle)',
+              boxShadow: '0 4px 16px -2px rgba(255, 170, 36, 0.08)',
               padding: '24px',
             }}
           >
@@ -370,11 +370,11 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                     width: '32px',
                     height: '32px',
                     borderRadius: 'var(--radius-md)',
-                    background: '#eff6ff',
+                    background: 'var(--accent-primary-light)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '1px solid #bfdbfe',
+                    border: '1px solid var(--accent-primary-border)',
                   }}
                 >
                   <ShieldCheck size={18} color="var(--accent-primary)" />
@@ -402,8 +402,8 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
             {/* Direct Model Answer Box */}
             <div
               style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                background: 'var(--bg-card-subtle)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 padding: '18px 20px',
                 marginBottom: '18px',
@@ -413,7 +413,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
                 Synthesized Grounded Answer:
               </span>
-              <p style={{ fontSize: '0.94rem', color: '#1e293b', lineHeight: 1.65, fontWeight: 500 }}>
+              <p style={{ fontSize: '0.94rem', color: 'var(--text-secondary)', lineHeight: 1.65, fontWeight: 500 }}>
                 {report?.executive_summary || selectedQuestionObj?.direct_answer}
               </p>
             </div>
@@ -439,7 +439,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                   <div
                     key={c.id || idx}
                     style={{
-                      background: '#ffffff',
+                      background: 'var(--bg-card-subtle)',
                       border: '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
                       padding: '10px 14px',
@@ -480,15 +480,15 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                   <div
                     key={dIdx}
                     style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
+                      background: 'var(--bg-card-subtle)',
+                      border: '1px solid var(--border-subtle)',
                       borderRadius: 'var(--radius-md)',
                       padding: '14px 16px',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                       <div>
-                        <h5 style={{ fontSize: '0.88rem', fontWeight: 700, color: '#0f172a' }}>
+                        <h5 style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                           [{dIdx + 1}] {doc.title}
                         </h5>
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -501,8 +501,8 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
                     </div>
                     <div
                       style={{
-                        background: '#ffffff',
-                        border: '1px solid #e2e8f0',
+                        background: 'var(--bg-card-subtle)',
+                        border: '1px solid var(--border-subtle)',
                         borderRadius: 'var(--radius-sm)',
                         padding: '8px 12px',
                         fontSize: '0.8rem',
@@ -526,7 +526,7 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
         className="card"
         style={{
           marginTop: '24px',
-          background: '#f8fafc',
+          background: 'var(--bg-card-subtle)',
           borderColor: 'var(--border-subtle)',
           padding: '20px 24px',
         }}

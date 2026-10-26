@@ -59,7 +59,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({ onSwitchToLogin }) =
         {/* Brand */}
         <div className="auth-brand">
           <div className="auth-brand-icon">
-            <FlaskConical size={28} color="#ffffff" />
+            <FlaskConical size={28} color="#131007" />
           </div>
           <div>
             <div className="auth-brand-name">ResearchPilot</div>

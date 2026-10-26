@@ -2,19 +2,32 @@ import {
   AcademicPaper,
   AuthUser,
   BenchmarkCase,
+  BenchmarkHistoryEntry,
   BenchmarkResult,
   Claim,
+  DashboardStats,
   Experiment,
   FinalReport,
+  HistoryEntry,
   LiteratureSearchResult,
   LiteratureSourceInfo,
   LoginPayload,
   RegisterPayload,
   ResearchTask,
   Run,
+  SavedPaper,
+  TaskRunSummary,
 } from '../types';
 
 const API_BASE = '/api';
+const TOKEN_KEY = 'rp_auth_token';
+
+/** Attach the JWT to every request when a session token exists. Requests
+ * without a token behave exactly as before (shared local user). */
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+}
 
 export const api = {
   // Tasks
@@ -26,7 +39,7 @@ export const api = {
   }): Promise<ResearchTask> {
     const res = await fetch(`${API_BASE}/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Failed to create task: ${res.statusText}`);
@@ -45,11 +58,59 @@ export const api = {
     return res.json();
   },
 
+  async listTaskRuns(taskId: string): Promise<TaskRunSummary[]> {
+    const res = await fetch(`${API_BASE}/tasks/${taskId}/runs`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to list runs: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getDashboardStats(): Promise<DashboardStats> {
+    const res = await fetch(`${API_BASE}/stats/dashboard`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to load dashboard stats: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getHistory(): Promise<HistoryEntry[]> {
+    const res = await fetch(`${API_BASE}/history`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to load history: ${res.statusText}`);
+    return res.json();
+  },
+
+  // ── Saved papers (user library) ──
+
+  async savePaper(paper: Partial<AcademicPaper>): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/papers/save`, {
+      method: 'POST',
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(paper),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Failed to save paper');
+    }
+    return res.json();
+  },
+
+  async listSavedPapers(): Promise<{ papers: SavedPaper[]; total: number }> {
+    const res = await fetch(`${API_BASE}/papers/saved`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to load saved papers: ${res.statusText}`);
+    return res.json();
+  },
+
+  async removeSavedPaper(paperId: string): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/papers/saved/${paperId}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error(`Failed to remove paper: ${res.statusText}`);
+    return res.json();
+  },
+
   // Runs
   async startRun(taskId: string, execution_mode: string = 'autonomous'): Promise<Run> {
     const res = await fetch(`${API_BASE}/tasks/${taskId}/runs`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ execution_mode }),
     });
     if (!res.ok) throw new Error(`Failed to start run: ${res.statusText}`);
@@ -77,6 +138,7 @@ export const api = {
   async approveGatedRun(runId: string): Promise<{ status: string; message: string }> {
     const res = await fetch(`${API_BASE}/runs/${runId}/approve`, {
       method: 'POST',
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error(`Failed to approve run: ${res.statusText}`);
     return res.json();
@@ -85,6 +147,7 @@ export const api = {
   async reexecuteExperiment(expId: string): Promise<any> {
     const res = await fetch(`${API_BASE}/experiments/${expId}/execute`, {
       method: 'POST',
+      headers: authHeaders(),
     });
     if (!res.ok) throw new Error(`Failed to execute experiment: ${res.statusText}`);
     return res.json();
@@ -113,6 +176,12 @@ export const api = {
   async getBenchmarkCases(): Promise<BenchmarkCase[]> {
     const res = await fetch(`${API_BASE}/benchmarks/cases`);
     if (!res.ok) throw new Error(`Failed to get benchmark cases: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getBenchmarkHistory(limit: number = 10): Promise<{ runs: BenchmarkHistoryEntry[] }> {
+    const res = await fetch(`${API_BASE}/benchmarks/history?limit=${limit}`, { headers: authHeaders() });
+    if (!res.ok) throw new Error(`Failed to get benchmark history: ${res.statusText}`);
     return res.json();
   },
 

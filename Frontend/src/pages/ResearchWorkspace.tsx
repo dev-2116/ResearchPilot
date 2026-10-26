@@ -1,28 +1,23 @@
 import React, { useState } from 'react';
 import {
-  Play,
-  CheckCircle2,
-  Clock,
+  ArrowRight,
   AlertTriangle,
   FileCode,
-  Shield,
-  Search,
   FlaskConical,
+  GitBranch,
+  Play,
+  Search,
   FileText,
-  RefreshCw,
-  Terminal,
-  ArrowRight,
-  ExternalLink,
-  Cpu,
-  Layers
 } from 'lucide-react';
 import { StateGraph } from '../components/StateGraph';
-import { AgentStep, ResearchTask, Run } from '../types';
+import { ExecutionMode, ResearchTask, Run } from '../types';
+import { EmptyState, ProgressBar, SectionHeader, StatusBadge, fmtDuration, fmtTime } from '../components/ui';
 
 interface ResearchWorkspaceProps {
   task: ResearchTask | null;
   run: Run | null;
   onApproveGated: () => void;
+  onStartRun: (task: ResearchTask, mode?: ExecutionMode) => void;
   onNavigateTab: (tab: string) => void;
   isApproving: boolean;
 }
@@ -31,271 +26,232 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
   task,
   run,
   onApproveGated,
+  onStartRun,
   onNavigateTab,
   isApproving,
 }) => {
-  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(1);
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
 
-  if (!task || !run) {
+  if (!task) {
     return (
-      <div className="page-view" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <Terminal size={48} color="var(--accent-primary)" style={{ margin: '0 auto 16px', opacity: 0.6 }} />
-        <h2 style={{ fontSize: '1.4rem', color: 'var(--text-primary)', marginBottom: '8px' }}>No Active Investigation Selected</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto 24px' }}>
-          Select an existing research task from the dashboard or launch a new investigation to view the live agent execution graph.
-        </p>
-        <button className="btn btn-primary" onClick={() => onNavigateTab('dashboard')}>
-          Go to Dashboard
-        </button>
+      <div className="page-view">
+        <div className="card">
+          <EmptyState
+            icon={<GitBranch size={22} />}
+            title="No investigation selected"
+            description="Select an investigation from the Dashboard or Research History, or launch a new one, to inspect its live agent state machine and execution trace."
+            action={
+              <button className="btn btn-primary" onClick={() => onNavigateTab('dashboard')}>
+                Go to Dashboard
+              </button>
+            }
+          />
+        </div>
       </div>
     );
   }
 
-  const selectedStep = run.steps.find((s) => s.step_index === selectedStepIndex) || run.steps[run.steps.length - 1];
+  const selectedStep =
+    run?.steps.find((s) => s.step_index === selectedStepIndex) || null;
 
   return (
     <div className="page-view">
-      {/* Header Info Card */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span className="mono badge badge-indigo">{task.id}</span>
-              <span className="mono badge badge-cyan">{run.run_id}</span>
-              <span className="badge badge-emerald">{task.domain}</span>
-              <span className={`badge ${run.execution_mode === 'gated' ? 'badge-amber' : 'badge-indigo'}`}>
-                {run.execution_mode.toUpperCase()} MODE
-              </span>
-            </div>
-            <h2 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 700 }}>{task.question}</h2>
-          </div>
+      {/* Task header */}
+      <div className="card">
+        <SectionHeader
+          icon={<GitBranch size={17} />}
+          title={task.question}
+          subtitle={undefined}
+          right={
+            run ? (
+              <StatusBadge status={run.status} className="" >
+                {run.status === 'WAITING_APPROVAL' ? 'AWAITING CODE APPROVAL' : run.status.replace(/_/g, ' ')}
+              </StatusBadge>
+            ) : (
+              <span className="badge badge-slate">No runs yet</span>
+            )
+          }
+        />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className={`badge ${run.status === 'COMPLETED' ? 'badge-emerald' : run.status === 'WAITING_APPROVAL' ? 'badge-amber' : 'badge-cyan'}`} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
-              {run.status === 'WAITING_APPROVAL' ? '⏸ PAUSED: AWAITING CODE APPROVAL' : run.status}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, margin: '10px 0 4px' }}>
+          <span className="mono badge badge-slate">{task.id}</span>
+          {run && <span className="mono badge badge-slate">{run.run_id}</span>}
+          <span className="badge badge-cyan">{task.domain}</span>
+          <span className="badge badge-slate">{run?.execution_mode || task.execution_mode} mode</span>
+          {task.constraints && (
+            <span className="badge badge-slate" style={{ maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis' }} title={task.constraints}>
+              {task.constraints}
             </span>
-          </div>
+          )}
         </div>
 
-        {/* Progress Bar */}
-        <div style={{ marginTop: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 500 }}>
-            <span>Pipeline Progress: {Math.round(run.progress * 100)}% ({run.current_step})</span>
-            <span>Tokens: {run.cost.tokens.toLocaleString()} | Cumulative Latency: ~{run.steps.reduce((acc, s) => acc + s.latency_ms, 0)}ms</span>
+        {run ? (
+          <div style={{ marginTop: 14 }}>
+            <ProgressBar
+              value={run.progress}
+              label={`Pipeline · ${run.current_step.replace(/_/g, ' ')} · ${fmtDuration(run.steps.reduce((acc, s) => acc + s.latency_ms, 0))} cumulative latency`}
+              tone={run.status === 'FAILED' ? 'rose' : run.status === 'COMPLETED' ? 'emerald' : 'amber'}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 7, fontSize: '0.73rem', color: 'var(--text-light)' }}>
+              <span>Started {fmtTime(run.started_at)}{run.ended_at ? ` · ended ${fmtTime(run.ended_at)}` : ''}</span>
+              <span>{run.cost.tokens > 0 ? `${run.cost.tokens.toLocaleString()} tokens · ` : 'No LLM token usage (deterministic pipeline) · '}{run.evidence_count} passages · {run.claims_count} claims</span>
+            </div>
+            {run.latest_error && (
+              <p className="form-error-text" style={{ marginTop: 8 }}>Last error: {run.latest_error}</p>
+            )}
           </div>
-          <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-            <div style={{ width: `${Math.max(6, run.progress * 100)}%`, height: '100%', background: 'linear-gradient(90deg, var(--accent-primary), var(--accent-emerald))', transition: 'width 0.4s ease' }} />
+        ) : (
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'var(--bg-inset)', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-md)', padding: '13px 15px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              This task has not been executed yet. Starting a run launches the 10-stage agent pipeline.
+            </span>
+            <button className="btn btn-primary" onClick={() => onStartRun(task)} style={{ flexShrink: 0 }}>
+              <Play size={14} /> Start Run
+            </button>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Gated Mode Approval Action Banner */}
-      {run.status === 'WAITING_APPROVAL' && (
-        <div className="card" style={{
-          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-          borderColor: '#f59e0b',
-          boxShadow: '0 4px 16px rgba(245, 158, 11, 0.15)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: '#fde68a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertTriangle size={22} color="#b45309" />
+      {/* Gated approval banner */}
+      {run?.status === 'WAITING_APPROVAL' && (
+        <div className="card" style={{ borderColor: 'var(--accent-amber-border)', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(17,20,23,0))' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-amber-light)', border: '1px solid var(--accent-amber-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <AlertTriangle size={19} color="var(--accent-amber)" />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.05rem', color: '#92400e', fontWeight: 700, marginBottom: '2px' }}>
-                  Human-in-the-Loop Checkpoint: Code Review Required
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--accent-amber)', marginBottom: 2 }}>
+                  Human-in-the-loop checkpoint
                 </h3>
-                <p style={{ fontSize: '0.82rem', color: '#78350f' }}>
-                  Hypothesis and empirical experiment code have been generated. Review sandbox specifications before authorizing execution.
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Hypothesis and experiment code are ready. Review them in the Experiment Lab before authorizing sandbox execution.
                 </p>
               </div>
             </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: 9, flexShrink: 0 }}>
               <button className="btn btn-secondary" onClick={() => onNavigateTab('experiment')}>
-                <FileCode size={16} />
-                <span>Inspect Code in Lab</span>
+                <FileCode size={14} /> Inspect Code
               </button>
-              <button className="btn btn-success" onClick={onApproveGated} disabled={isApproving} style={{ padding: '10px 20px' }}>
-                <Play size={16} />
-                <span>{isApproving ? 'Authorizing...' : 'Approve & Run Experiment'}</span>
+              <button className="btn btn-success" onClick={onApproveGated} disabled={isApproving}>
+                <Play size={14} />
+                <span>{isApproving ? 'Authorizing…' : 'Approve & Execute'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Interactive 11-State Graph */}
-      <StateGraph
-        currentStep={run.current_step}
-        runStatus={run.status}
-        steps={run.steps}
-        selectedStepIndex={selectedStepIndex}
-        onSelectStep={(idx) => setSelectedStepIndex(idx)}
-      />
+      {/* FSM graph + outputs */}
+      {run ? (
+        <>
+          <StateGraph
+            currentStep={run.current_step}
+            runStatus={run.status}
+            steps={run.steps}
+            selectedStepIndex={selectedStepIndex}
+            onSelectStep={(idx) => setSelectedStepIndex(idx)}
+          />
 
-      {/* Step Inspector & Quick Navigation */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        {/* Step Inspector Detail */}
+          <div className="grid-sidebar" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, alignItems: 'start' }}>
+            {/* Step inspector */}
+            <div className="card">
+              <SectionHeader
+                icon={<Search size={15} />}
+                title={selectedStep ? `Step ${selectedStep.step_index} · ${selectedStep.step_type}` : 'Step Inspector'}
+                subtitle={
+                  selectedStep
+                    ? `Executed ${fmtTime(selectedStep.created_at)} · ${selectedStep.latency_ms}ms · ${selectedStep.token_usage > 0 ? `${selectedStep.token_usage} LLM tokens` : 'no LLM usage'}${selectedStep.error_message ? ' · errored' : ''}`
+                    : 'Click any node in the pipeline above to inspect its input/output payloads.'
+                }
+                right={selectedStep && <StatusBadge status={selectedStep.status} />}
+              />
+              {selectedStep ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 10 }}>
+                  {[
+                    { label: 'Step input payload', data: selectedStep.input },
+                    { label: 'Step output & generated evidence', data: selectedStep.output },
+                  ].map((blk) => (
+                    <div key={blk.label}>
+                      <label className="form-label" style={{ display: 'block', marginBottom: 6 }}>{blk.label}</label>
+                      <div className="terminal-window">
+                        <pre className="terminal-body" style={{ maxHeight: 190, fontSize: '0.74rem' }}>
+                          {JSON.stringify(blk.data, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedStep.error_message && (
+                    <p className="form-error-text">Step error: {selectedStep.error_message}</p>
+                  )}
+                </div>
+              ) : (
+                <EmptyState
+                  title="No step selected"
+                  description="Pipeline nodes highlight as the run progresses. Select one to view its exact payloads."
+                />
+              )}
+            </div>
+
+            {/* Outputs deep links */}
+            <div className="card">
+              <SectionHeader
+                icon={<ArrowRight size={15} />}
+                title="Investigation Outputs"
+                subtitle="Jump to artifacts generated by this run"
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                <button className="link-row" onClick={() => onNavigateTab('evidence')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <Search size={17} color="var(--accent-blue)" />
+                    <span>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Evidence Explorer</span>
+                      <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {run.evidence_count} verified passages & claims
+                      </span>
+                    </span>
+                  </span>
+                  <ArrowRight size={14} color="var(--text-light)" />
+                </button>
+
+                <button className="link-row" onClick={() => onNavigateTab('experiment')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <FlaskConical size={17} color="var(--accent-purple)" />
+                    <span>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Experiment Lab</span>
+                      <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        Sandbox code, console & metrics
+                      </span>
+                    </span>
+                  </span>
+                  <ArrowRight size={14} color="var(--text-light)" />
+                </button>
+
+                <button className="link-row" onClick={() => onNavigateTab('report')}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <FileText size={17} color={run.status === 'COMPLETED' ? 'var(--accent-emerald)' : 'var(--text-light)'} />
+                    <span>
+                      <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600 }}>Final Report</span>
+                      <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        {run.status === 'COMPLETED' ? 'Generated & provenance-sealed' : 'Generated when the run completes'}
+                      </span>
+                    </span>
+                  </span>
+                  <ArrowRight size={14} color="var(--text-light)" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
         <div className="card">
-          <div className="card-header">
-            <div>
-              <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                Step Inspector: {selectedStep ? `Step ${selectedStep.step_index} (${selectedStep.step_type})` : 'Select Step'}
-              </h3>
-              <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-                {selectedStep ? `Executed at ${new Date(selectedStep.created_at).toLocaleTimeString()}` : 'Click any node in the graph above to inspect step details.'}
-              </p>
-            </div>
-            {selectedStep && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <span className="badge badge-indigo">
-                  {selectedStep.token_usage} Tokens
-                </span>
-                <span className="badge badge-slate">
-                  {selectedStep.latency_ms}ms Latency
-                </span>
-              </div>
-            )}
-          </div>
-
-          {selectedStep ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '6px', display: 'block' }}>
-                  STEP INPUT PAYLOAD:
-                </label>
-                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', maxHeight: '160px', overflowY: 'auto' }}>
-                  <pre className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                    {JSON.stringify(selectedStep.input, null, 2)}
-                  </pre>
-                </div>
-              </div>
-
-              <div>
-                <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '6px', display: 'block' }}>
-                  STEP OUTPUT & GENERATED EVIDENCE:
-                </label>
-                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', maxHeight: '200px', overflowY: 'auto' }}>
-                  <pre className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
-                    {JSON.stringify(selectedStep.output, null, 2)}
-                  </pre>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              Select a step above to inspect execution payload.
-            </div>
-          )}
+          <EmptyState
+            icon={<Play size={18} />}
+            title="Pipeline idle"
+            description="Start a run above to watch the agent plan, retrieve, verify, experiment and report — every stage recorded with real latency and full provenance."
+          />
         </div>
-
-        {/* Quick Stage Deep Links */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700, marginBottom: '4px' }}>Investigation Outputs</h3>
-            <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Direct view of generated artifacts</p>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div
-              onClick={() => onNavigateTab('evidence')}
-              style={{
-                padding: '14px',
-                background: '#ffffff',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: 'var(--shadow-xs)',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#bfdbfe';
-                e.currentTarget.style.background = '#f8fafc';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                e.currentTarget.style.background = '#ffffff';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Search size={18} color="var(--accent-primary)" />
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Evidence Explorer</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{run.evidence_count} passages & NLI claims</div>
-                </div>
-              </div>
-              <ArrowRight size={14} color="var(--text-muted)" />
-            </div>
-
-            <div
-              onClick={() => onNavigateTab('experiment')}
-              style={{
-                padding: '14px',
-                background: '#ffffff',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: 'var(--shadow-xs)',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#bfdbfe';
-                e.currentTarget.style.background = '#f8fafc';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                e.currentTarget.style.background = '#ffffff';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FlaskConical size={18} color="var(--accent-indigo)" />
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Experiment Lab</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Code sandbox & metrics</div>
-                </div>
-              </div>
-              <ArrowRight size={14} color="var(--text-muted)" />
-            </div>
-
-            <div
-              onClick={() => onNavigateTab('report')}
-              style={{
-                padding: '14px',
-                background: run.status === 'COMPLETED' ? '#ecfdf5' : '#ffffff',
-                border: `1px solid ${run.status === 'COMPLETED' ? '#a7f3d0' : 'var(--border-subtle)'}`,
-                borderRadius: 'var(--radius-md)',
-                cursor: 'pointer',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxShadow: 'var(--shadow-xs)',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#a7f3d0';
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FileText size={18} color="var(--accent-emerald)" />
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Final Synthesis Report</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {run.status === 'COMPLETED' ? 'Paper Generated & Provenance Verified' : 'Generating on completion...'}
-                  </div>
-                </div>
-              </div>
-              <ArrowRight size={14} color="var(--text-muted)" />
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -165,6 +165,13 @@ export interface BenchmarkResult {
   summary: string;
 }
 
+export interface BenchmarkHistoryEntry {
+  id: string;
+  benchmark_id: string;
+  timestamp: string;
+  results: BenchmarkResult;
+}
+
 export interface MidSemQuestion {
   id: string;
   short_title: string;
@@ -257,5 +264,70 @@ export interface LiteratureSearchResult {
   sources_queried: string[];
   source_counts: Record<string, number>;
   papers: AcademicPaper[];
+}
+
+// ── Dashboard statistics (real aggregates from the backend) ──────────────────
+
+export interface DashboardStats {
+  tasks_total: number;
+  runs_total: number;
+  runs_completed: number;
+  runs_failed: number;
+  runs_active: number;
+  claims_total: number;
+  claims_supported: number;
+  claims_refuted: number;
+  claims_insufficient: number;
+  experiments_total: number;
+  experiments_completed: number;
+  reports_total: number;
+  documents_total: number;
+  chunks_total: number;
+  corpus_active: number;
+  benchmark_runs_total: number;
+  saved_papers_total: number;
+  task_status_distribution: Array<{ status: string; count: number }>;
+  task_domain_distribution: Array<{ domain: string; count: number }>;
+  activity_daily: Array<{ date: string; tasks: number }>;
+  recent_tasks: ResearchTask[];
+}
+
+export interface HistoryEntry extends ResearchTask {
+  run_count: number;
+  latest_run_status: string | null;
+  latest_run_id: string | null;
+  latest_claims_count: number | null;
+  latest_evidence_count: number | null;
+  report_count: number;
+}
+
+export interface TaskRunSummary {
+  run_id: string;
+  task_id: string;
+  status: string;
+  current_step: string;
+  progress: number;
+  execution_mode: string;
+  started_at: string;
+  ended_at?: string | null;
+  cost: { tokens: number; usd: number };
+  evidence_count: number;
+  claims_count: number;
+  latest_error?: string | null;
+}
+
+export interface SavedPaper {
+  id: string;
+  user_id: string;
+  title: string;
+  authors?: string | null;
+  publication_year?: number | null;
+  venue?: string | null;
+  abstract?: string | null;
+  identifier?: string | null;
+  url?: string | null;
+  source?: string | null;
+  citation_count: number;
+  saved_at: string;
 }
 

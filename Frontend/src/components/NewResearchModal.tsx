@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sparkles, Shield, Cpu, Play, BookOpen, Layers } from 'lucide-react';
+import { X, Sparkles, Play, BookOpen } from 'lucide-react';
 import { ExecutionMode } from '../types';
 
 interface NewResearchModalProps {
@@ -11,52 +11,52 @@ interface NewResearchModalProps {
 
 const TEMPLATES = [
   {
-    title: 'Q1: Hybrid BM25 vs Dense Embeddings',
+    title: 'Hybrid BM25 vs Dense Embeddings',
     question: 'How does hybrid BM25 and dense retrieval compare against dense-only embeddings in scientific domain QA?',
     domain: 'Artificial Intelligence & RAG',
     constraints: 'Evaluate recall and latency on technical terminology'
   },
   {
-    title: 'Q2: Claim Verification & Hallucination Mitigation',
+    title: 'Claim Verification & Hallucination Mitigation',
     question: 'How does claim-level evidence verification reduce hallucinations in AI research assistance?',
     domain: 'Agentic Fact Verification',
     constraints: 'Include NLI support scoring and reference matching'
   },
   {
-    title: 'Q3: ML Experiment Reproducibility Manifests',
+    title: 'ML Experiment Reproducibility Manifests',
     question: 'What minimum execution parameters must be recorded in an execution manifest to guarantee ML reproducibility?',
     domain: 'Machine Learning Reproducibility',
     constraints: 'Record seeds, hardware specs, and metric hashes'
   },
   {
-    title: 'Q4: State-Machine Orchestration vs Recursive Loops',
+    title: 'State-Machine Orchestration vs Recursive Loops',
     question: 'Why is state-machine orchestration preferred over unconstrained recursive loops in research agents?',
     domain: 'Agent Architecture & Control',
     constraints: 'Bound agent behavior and step policies'
   }
 ];
 
-export const NewResearchModal: React.FC<NewResearchModalProps> = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  isLoading,
-}) => {
+export const NewResearchModal: React.FC<NewResearchModalProps> = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [question, setQuestion] = useState('');
   const [domain, setDomain] = useState('Artificial Intelligence & RAG');
   const [constraints, setConstraints] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('autonomous');
+  const [touched, setTouched] = useState(false);
 
   if (!isOpen) return null;
+
+  const questionInvalid = touched && !question.trim();
 
   const handleApplyTemplate = (tpl: typeof TEMPLATES[0]) => {
     setQuestion(tpl.question);
     setDomain(tpl.domain);
     setConstraints(tpl.constraints);
+    setTouched(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched(true);
     if (!question.trim()) return;
     onSubmit({
       question: question.trim(),
@@ -67,118 +67,113 @@ export const NewResearchModal: React.FC<NewResearchModalProps> = ({
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>
-              <Sparkles size={20} color="var(--accent-primary)" />
+    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget && !isLoading) onClose(); }}>
+      <div className="modal-content" role="dialog" aria-modal="true" aria-label="New research investigation">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="card-icon-tile" style={{ width: 38, height: 38 }}>
+              <Sparkles size={19} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', fontWeight: 700 }}>New Research Investigation</h2>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Initiate evidence-verified autonomous research workflow</p>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>New Research Investigation</h2>
+              <p style={{ fontSize: '0.77rem', color: 'var(--text-muted)' }}>
+                Launch the evidence-verified agent pipeline on your question
+              </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}>
-            <X size={20} />
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close dialog" disabled={isLoading}>
+            <X size={19} />
           </button>
         </div>
 
-        {/* Templates */}
-        <div style={{ marginBottom: '20px' }}>
-          <label className="form-label" style={{ marginBottom: '8px', display: 'block' }}>Quick Starter Templates:</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ marginBottom: 18 }}>
+          <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>Starter templates</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {TEMPLATES.map((t, idx) => (
-              <div
+              <button
                 key={idx}
+                type="button"
+                className="link-row"
                 onClick={() => handleApplyTemplate(t)}
-                style={{
-                  padding: '10px 14px',
-                  background: '#f8fafc',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  fontSize: '0.84rem',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#eff6ff';
-                  e.currentTarget.style.borderColor = '#bfdbfe';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#f8fafc';
-                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                }}
+                disabled={isLoading}
+                style={{ fontSize: '0.82rem' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <BookOpen size={14} color="var(--accent-primary)" />
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{t.title}</span>
-                </div>
-                <span style={{ color: 'var(--accent-primary)', fontSize: '0.75rem', fontWeight: 600 }}>Apply Template →</span>
-              </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                  <BookOpen size={14} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                </span>
+                <span style={{ color: 'var(--text-light)', fontSize: '0.72rem', flexShrink: 0 }}>Apply →</span>
+              </button>
             ))}
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-group">
-            <label className="form-label">Research Question *</label>
+            <label className="form-label" htmlFor="nr-question">Research question *</label>
             <textarea
-              className="form-textarea"
+              id="nr-question"
+              className={`form-textarea ${questionInvalid ? 'auth-input-error' : ''}`}
               rows={3}
               placeholder="e.g. How does hybrid BM25 and dense retrieval compare against dense-only embeddings in scientific domain QA?"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              required
+              onBlur={() => setTouched(true)}
+              aria-invalid={questionInvalid}
+              aria-describedby={questionInvalid ? 'nr-question-error' : undefined}
+              disabled={isLoading}
             />
+            {questionInvalid && (
+              <span id="nr-question-error" className="form-error-text">
+                A research question is required before the agent can start.
+              </span>
+            )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="auth-row">
             <div className="form-group">
-              <label className="form-label">Scientific Domain</label>
-              <select className="form-select" value={domain} onChange={(e) => setDomain(e.target.value)}>
+              <label className="form-label" htmlFor="nr-domain">Scientific domain</label>
+              <select id="nr-domain" className="form-select" value={domain} onChange={(e) => setDomain(e.target.value)} disabled={isLoading}>
                 <option value="Artificial Intelligence & RAG">AI & RAG Systems</option>
                 <option value="Machine Learning Reproducibility">ML Reproducibility</option>
                 <option value="Agentic Fact Verification">Fact Verification</option>
                 <option value="Biomedical Informatics">Biomedical Informatics</option>
+                <option value="Agent Architecture & Control">Agent Architecture</option>
+                <option value="Open Scientific Research">Open Research</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Execution Mode</label>
-              <select className="form-select" value={executionMode} onChange={(e) => setExecutionMode(e.target.value as ExecutionMode)}>
-                <option value="autonomous">Autonomous (End-to-End)</option>
-                <option value="gated">Human-in-the-Loop (Gated Code Approval)</option>
+              <label className="form-label" htmlFor="nr-mode">Execution mode</label>
+              <select id="nr-mode" className="form-select" value={executionMode} onChange={(e) => setExecutionMode(e.target.value as ExecutionMode)} disabled={isLoading}>
+                <option value="autonomous">Autonomous — end-to-end</option>
+                <option value="gated">Gated — approve code before execution</option>
               </select>
             </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Constraints / Directives (Optional)</label>
+            <label className="form-label" htmlFor="nr-constraints">Constraints / directives (optional)</label>
             <input
+              id="nr-constraints"
               type="text"
               className="form-input"
               placeholder="e.g. Compare against standard LLM baseline with seed=42"
               value={constraints}
               onChange={(e) => setConstraints(e.target.value)}
+              disabled={isLoading}
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 11, marginTop: 20 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose} disabled={isLoading}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={isLoading || !question.trim()}>
               {isLoading ? (
-                <span>Initializing Run...</span>
+                <><span className="loading-spinner" style={{ width: 14, height: 14, borderWidth: 2, borderTopColor: '#131007' }} /> Initializing run…</>
               ) : (
-                <>
-                  <Play size={16} />
-                  <span>Launch Research Agent</span>
-                </>
+                <><Play size={15} /> Launch Research Agent</>
               )}
             </button>
           </div>

@@ -1,258 +1,267 @@
 import React, { useState } from 'react';
 import {
+  BookOpen,
+  ChevronRight,
+  HelpCircle,
+  Info,
   Search,
   ShieldCheck,
   AlertOctagon,
-  HelpCircle,
-  BookOpen,
-  ExternalLink,
-  ChevronRight,
-  Filter,
-  CheckCircle2,
-  FileText,
-  GitMerge,
-  Layers,
-  Sparkles
 } from 'lucide-react';
 import { Claim, VerificationStatus } from '../types';
+import { EmptyState, SectionHeader } from '../components/ui';
 
 interface EvidenceExplorerProps {
   claims: Claim[];
   isLoading: boolean;
 }
 
+const STATUS_META: Record<string, { badge: string; icon: React.ReactNode; label: string }> = {
+  SUPPORTED: { badge: 'badge-emerald', icon: <ShieldCheck size={12} />, label: 'SUPPORTED' },
+  REFUTED: { badge: 'badge-rose', icon: <AlertOctagon size={12} />, label: 'REFUTED' },
+  INSUFFICIENT_EVIDENCE: { badge: 'badge-amber', icon: <HelpCircle size={12} />, label: 'INSUFFICIENT EVIDENCE' },
+  UNVERIFIED: { badge: 'badge-slate', icon: <HelpCircle size={12} />, label: 'UNVERIFIED' },
+};
+
+const ENTAILMENT_META: Record<string, { badge: string; label: string }> = {
+  ENTAILED: { badge: 'badge-emerald', label: 'ENTAILED (NLI)' },
+  CONTRADICTION: { badge: 'badge-rose', label: 'CONTRADICTION' },
+  NEUTRAL: { badge: 'badge-amber', label: 'NEUTRAL' },
+};
+
 export const EvidenceExplorer: React.FC<EvidenceExplorerProps> = ({ claims, isLoading }) => {
   const [filter, setFilter] = useState<string>('ALL');
-  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(claims[0]?.id || null);
+  const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
+
+  const counts = {
+    supported: claims.filter((c) => c.verification_status === 'SUPPORTED').length,
+    refuted: claims.filter((c) => c.verification_status === 'REFUTED').length,
+    insufficient: claims.filter((c) => !['SUPPORTED', 'REFUTED'].includes(c.verification_status)).length,
+  };
+  const total = claims.length;
 
   const filteredClaims = claims.filter((c) => {
     if (filter === 'ALL') return true;
+    if (filter === 'INSUFFICIENT_EVIDENCE') return !['SUPPORTED', 'REFUTED'].includes(c.verification_status);
     return c.verification_status === filter;
   });
 
-  const selectedClaim = claims.find((c) => c.id === selectedClaimId) || filteredClaims[0] || claims[0];
-
-  const supportedCount = claims.filter((c) => c.verification_status === 'SUPPORTED').length;
-  const refutedCount = claims.filter((c) => c.verification_status === 'REFUTED').length;
-  const unverifiedCount = claims.filter((c) => c.verification_status !== 'SUPPORTED' && c.verification_status !== 'REFUTED').length;
+  const selectedClaim =
+    claims.find((c) => c.id === selectedClaimId) || filteredClaims[0] || claims[0] || null;
 
   const getStatusBadge = (status: VerificationStatus) => {
-    switch (status) {
-      case 'SUPPORTED':
-        return <span className="badge badge-emerald"><ShieldCheck size={12} /> SUPPORTED</span>;
-      case 'REFUTED':
-        return <span className="badge badge-rose"><AlertOctagon size={12} /> REFUTED</span>;
-      default:
-        return <span className="badge badge-amber"><HelpCircle size={12} /> INSUFFICIENT EVIDENCE</span>;
-    }
+    const meta = STATUS_META[status] || STATUS_META.UNVERIFIED;
+    return <span className={`badge ${meta.badge}`}>{meta.icon} {meta.label}</span>;
   };
 
   const getEntailmentBadge = (type: string) => {
-    switch (type) {
-      case 'ENTAILED':
-        return <span className="badge badge-emerald">ENTAILED (NLI SUPPORT)</span>;
-      case 'CONTRADICTION':
-        return <span className="badge badge-rose">CONTRADICTION</span>;
-      default:
-        return <span className="badge badge-amber">NEUTRAL</span>;
-    }
+    const meta = ENTAILMENT_META[type] || ENTAILMENT_META.NEUTRAL;
+    return <span className={`badge ${meta.badge}`}>{meta.label}</span>;
   };
+
+  const FILTERS = [
+    { id: 'ALL', label: 'All' },
+    { id: 'SUPPORTED', label: `Supported (${counts.supported})` },
+    { id: 'REFUTED', label: `Refuted (${counts.refuted})` },
+    { id: 'INSUFFICIENT_EVIDENCE', label: `Insufficient (${counts.insufficient})` },
+  ];
 
   return (
     <div className="page-view">
-      {/* Header Info */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span className="badge badge-indigo">Natural Language Inference (NLI)</span>
-              <span className="badge badge-emerald">Claim-to-Source Provenance</span>
-              <span className="badge badge-cyan">Zero Ungrounded Assertions</span>
+      <div className="card">
+        <SectionHeader
+          icon={<Search size={17} />}
+          title="Evidence & Claim Provenance Explorer"
+          subtitle="Decomposed factual assertions mapped to retrieved literature passages"
+        />
+
+        {claims.length > 0 && (
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 7 }}>
+              <span>Verification distribution · <strong style={{ color: 'var(--text-secondary)' }}>{total} claims</strong></span>
+              <span style={{ display: 'inline-flex', gap: 12 }}>
+                <span style={{ color: 'var(--accent-emerald)' }}>{counts.supported} supported</span>
+                <span style={{ color: 'var(--accent-rose)' }}>{counts.refuted} refuted</span>
+                <span style={{ color: 'var(--accent-amber)' }}>{counts.insufficient} insufficient</span>
+              </span>
             </div>
-            <h2 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-              Evidence & Claim Provenance Explorer
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              Inspect decomposed factual assertions, entailment confidence scores, and linked peer-reviewed literature passages.
-            </p>
+            <div className="progress-track" style={{ display: 'flex', height: 8 }}>
+              {total > 0 && (
+                <>
+                  <div style={{ width: `${(counts.supported / total) * 100}%`, background: 'var(--accent-emerald)' }} title={`Supported: ${counts.supported}`} />
+                  <div style={{ width: `${(counts.refuted / total) * 100}%`, background: 'var(--accent-rose)' }} title={`Refuted: ${counts.refuted}`} />
+                  <div style={{ width: `${(counts.insufficient / total) * 100}%`, background: 'var(--accent-amber)' }} title={`Insufficient: ${counts.insufficient}`} />
+                </>
+              )}
+            </div>
           </div>
+        )}
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {['ALL', 'SUPPORTED', 'REFUTED', 'INSUFFICIENT_EVIDENCE'].map((f) => (
-              <button
-                key={f}
-                className={`btn ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.78rem', padding: '7px 14px' }}
-                onClick={() => setFilter(f)}
-              >
-                {f.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Claim Verification Summary Graphic Bar */}
-        <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid var(--border-subtle)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-            <span>Verification Distribution: <strong>{claims.length} Claims Total</strong></span>
-            <span>
-              <strong style={{ color: 'var(--accent-emerald)' }}>{supportedCount} Supported</strong> |{' '}
-              <strong style={{ color: 'var(--accent-rose)' }}>{refutedCount} Refuted</strong> |{' '}
-              <strong style={{ color: 'var(--accent-amber)' }}>{unverifiedCount} Neutral/Insufficient</strong>
-            </span>
-          </div>
-          <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: '#f1f5f9' }}>
-            <div style={{ width: `${(supportedCount / (claims.length || 1)) * 100}%`, background: '#059669' }} title="Supported" />
-            <div style={{ width: `${(refutedCount / (claims.length || 1)) * 100}%`, background: '#e11d48' }} title="Refuted" />
-            <div style={{ width: `${(unverifiedCount / (claims.length || 1)) * 100}%`, background: '#d97706' }} title="Insufficient" />
-          </div>
+        {/* Honest methodology note (HCI Rule 5/8) */}
+        <div style={{
+          marginTop: 14, display: 'flex', gap: 9, alignItems: 'flex-start',
+          background: 'var(--accent-blue-light)', border: '1px solid var(--accent-blue-border)',
+          borderRadius: 'var(--radius-md)', padding: '10px 13px', fontSize: '0.76rem',
+          color: 'var(--text-secondary)', lineHeight: 1.5,
+        }}>
+          <Info size={14} color="var(--accent-blue)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            Confidence and support scores come from the built-in lexical/NLI <strong>heuristic verifier</strong>.
+            They indicate how strongly retrieved passages align with each claim — they are not calibrated
+            scientific probabilities. Inspect the quoted passages and judge for yourself.
+          </span>
         </div>
       </div>
 
-      {/* Main Split: Claims on Left, Evidence Passages on Right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.35fr', gap: '24px', minHeight: '540px' }}>
-        {/* Claims List */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="card-header" style={{ marginBottom: '8px' }}>
-            <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-              Decomposed Claims ({filteredClaims.length})
-            </h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Click claim to inspect literature citations</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', overflowY: 'auto', maxHeight: '600px', paddingRight: '4px' }}>
-            {filteredClaims.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
-                No claims match the selected filter.
-              </div>
-            ) : (
-              filteredClaims.map((claim) => {
-                const isSelected = selectedClaim?.id === claim.id;
-                return (
-                  <div
-                    key={claim.id}
-                    onClick={() => setSelectedClaimId(claim.id)}
-                    style={{
-                      padding: '14px 16px',
-                      background: isSelected ? '#eff6ff' : '#ffffff',
-                      border: `1px solid ${isSelected ? '#3b82f6' : 'var(--border-subtle)'}`,
-                      borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.1)' : 'var(--shadow-xs)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span className="mono badge badge-indigo" style={{ fontSize: '0.7rem' }}>{claim.id}</span>
-                      {getStatusBadge(claim.verification_status)}
-                    </div>
-
-                    <p style={{ fontSize: '0.88rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.45, marginBottom: '8px' }}>
-                      "{claim.text}"
-                    </p>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>NLI Confidence: <strong style={{ color: 'var(--accent-emerald)' }}>{Math.round(claim.confidence * 100)}%</strong></span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-primary)', fontWeight: 600 }}>
-                        {claim.evidence.length} Evidence Sources <ChevronRight size={14} />
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+      {isLoading ? (
+        <div className="card"><div className="loading-spinner" style={{ margin: '40px auto', display: 'block' }} /></div>
+      ) : claims.length === 0 ? (
+        <div className="card">
+          <EmptyState
+            icon={<Search size={20} />}
+            title="No claims to explore yet"
+            description="Claims appear here once an investigation run has completed its VERIFY stage. Select or launch a run from the Research Workspace, then return to this page."
+          />
         </div>
+      ) : (
+        <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 20, alignItems: 'start' }}>
+          {/* Claims list */}
+          <div className="card">
+            <div className="card-header" style={{ marginBottom: 12 }}>
+              <h3 className="section-heading">Decomposed Claims ({filteredClaims.length})</h3>
+            </div>
 
-        {/* Evidence Passages & Source Provenance */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {selectedClaim ? (
-            <>
-              <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="mono badge badge-indigo">{selectedClaim.id} Provenance Graph</span>
-                  {getStatusBadge(selectedClaim.verification_status)}
+            <div className="seg-group" style={{ marginBottom: 14 }}>
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  className={`seg-btn ${filter === f.id ? 'active' : ''}`}
+                  onClick={() => setFilter(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 560, overflowY: 'auto', paddingRight: 2 }}>
+              {filteredClaims.length === 0 ? (
+                <EmptyState title="No claims match this filter" description="Try a different verification status filter." />
+              ) : (
+                filteredClaims.map((claim) => {
+                  const isSelected = selectedClaim?.id === claim.id;
+                  return (
+                    <div
+                      key={claim.id}
+                      onClick={() => setSelectedClaimId(claim.id)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedClaimId(claim.id); } }}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      style={{
+                        padding: '13px 15px',
+                        background: isSelected ? 'var(--accent-primary-light)' : 'var(--bg-card-subtle)',
+                        border: `1px solid ${isSelected ? 'var(--accent-primary-border)' : 'var(--border-subtle)'}`,
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <span className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-light)' }}>{claim.id}</span>
+                        {getStatusBadge(claim.verification_status)}
+                      </div>
+                      <p style={{ fontSize: '0.86rem', fontWeight: 600, lineHeight: 1.5, marginBottom: 8 }}>
+                        “{claim.text}”
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        <span>Heuristic confidence: <strong className="mono" style={{ color: 'var(--text-secondary)' }}>{Math.round(claim.confidence * 100)}%</strong></span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: isSelected ? 'var(--accent-primary)' : 'var(--text-muted)', fontWeight: 600 }}>
+                          {claim.evidence.length} source{claim.evidence.length === 1 ? '' : 's'} <ChevronRight size={13} />
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Evidence passages */}
+          <div className="card">
+            {selectedClaim ? (
+              <>
+                <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: 13, marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 9, flexWrap: 'wrap' }}>
+                    <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>{selectedClaim.id} · provenance</span>
+                    {getStatusBadge(selectedClaim.verification_status)}
+                  </div>
+                  <h3 style={{ fontSize: '1.02rem', fontWeight: 700, marginBottom: 6 }}>“{selectedClaim.text}”</h3>
+                  <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                    {selectedClaim.explanation || 'No verifier explanation was recorded for this claim.'}
+                  </p>
                 </div>
-                <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: 700, marginBottom: '6px' }}>
-                  "{selectedClaim.text}"
-                </h3>
-                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {selectedClaim.explanation}
-                </p>
-              </div>
 
-              {/* Supporting Passages */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', maxHeight: '480px' }}>
-                <h4 style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                  Verified Literature Passages ({selectedClaim.evidence.length})
+                <h4 className="text-muted-caps" style={{ marginBottom: 10 }}>
+                  Retrieved source passages ({selectedClaim.evidence.length})
                 </h4>
 
                 {selectedClaim.evidence.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    No direct passage retrieved for this assertion. Classified as Insufficient Evidence.
-                  </div>
+                  <EmptyState
+                    icon={<BookOpen size={18} />}
+                    title="No passages retrieved for this claim"
+                    description="With no supporting or contradicting passage, the verifier classifies the claim as insufficient evidence rather than guessing."
+                  />
                 ) : (
-                  selectedClaim.evidence.map((ev, idx) => (
-                    <div
-                      key={ev.id || idx}
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <BookOpen size={14} color="var(--accent-primary)" />
-                            <h5 style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                              {ev.document_title}
-                            </h5>
-                          </div>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {ev.document_authors} • <span className="mono" style={{ color: 'var(--accent-primary)' }}>{ev.document_identifier}</span>
-                          </span>
-                        </div>
-                        {getEntailmentBadge(ev.entailment_type)}
-                      </div>
-
-                      {/* Passage Snippet */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 13, maxHeight: 480, overflowY: 'auto', paddingRight: 2 }}>
+                    {selectedClaim.evidence.map((ev, idx) => (
                       <div
+                        key={ev.id || idx}
                         style={{
-                          background: '#ffffff',
-                          padding: '12px 14px',
-                          borderRadius: 'var(--radius-sm)',
-                          borderLeft: '4px solid #059669',
+                          background: 'var(--bg-card-subtle)',
                           border: '1px solid var(--border-subtle)',
-                          fontSize: '0.84rem',
-                          color: 'var(--text-primary)',
-                          lineHeight: 1.55,
-                          fontStyle: 'italic'
+                          borderRadius: 'var(--radius-md)',
+                          padding: 15,
+                          display: 'flex', flexDirection: 'column', gap: 10,
                         }}
                       >
-                        "{ev.passage_text}"
-                      </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                              <BookOpen size={13} color="var(--accent-blue)" />
+                              <h5 style={{ fontSize: '0.86rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={ev.document_title}>
+                                {ev.document_title}
+                              </h5>
+                            </div>
+                            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)' }}>
+                              {ev.document_authors} · <span className="mono" style={{ color: 'var(--accent-blue)' }}>{ev.document_identifier}</span>
+                            </span>
+                          </div>
+                          {getEntailmentBadge(ev.entailment_type)}
+                        </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '4px' }}>
-                        <span>Retrieval Rank Score: <strong className="mono">{ev.retrieval_score?.toFixed(3) || '0.912'}</strong></span>
-                        <span>NLI Support Score: <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>{(ev.support_score * 100).toFixed(1)}%</strong></span>
+                        <blockquote className="passage-quote" style={{ margin: 0 }}>
+                          “{ev.passage_text}”
+                        </blockquote>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          <span>Retrieval score: <strong className="mono">{typeof ev.retrieval_score === 'number' ? ev.retrieval_score.toFixed(3) : 'N/A'}</strong></span>
+                          <span>NLI support: <strong className="mono" style={{ color: 'var(--accent-emerald)' }}>{typeof ev.support_score === 'number' ? `${(ev.support_score * 100).toFixed(1)}%` : 'N/A'}</strong></span>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-              Select a claim on the left to inspect literature provenance.
-            </div>
-          )}
+              </>
+            ) : (
+              <EmptyState
+                icon={<Search size={18} />}
+                title="Select a claim"
+                description="Choose a claim on the left to inspect its linked literature provenance."
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

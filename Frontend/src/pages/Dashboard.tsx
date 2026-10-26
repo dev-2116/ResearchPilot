@@ -1,372 +1,386 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Sparkles,
+  ArrowRight,
+  Award,
+  BookOpen,
+  Bookmark,
+  Compass,
+  FileText,
+  FlaskConical,
+  GitBranch,
+  Globe,
+  Layers,
+  Plus,
   Search,
   ShieldCheck,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  TrendingUp,
-  Cpu,
-  Layers,
-  Terminal,
-  FileCheck,
-  BookOpen,
-  FlaskConical,
-  Award,
-  BarChart3,
-  GitBranch,
-  Shield
 } from 'lucide-react';
-import { ResearchTask, Run } from '../types';
+import { api } from '../services/api';
+import { AuthUser, DashboardStats, ResearchTask } from '../types';
+import { DonutChart, BarChart, LineChart } from '../components/charts';
+import {
+  EmptyState, ErrorNote, Skeleton, SkeletonCard, StatCard, StatusBadge,
+  fmtDate, fmtInt,
+} from '../components/ui';
 
 interface DashboardProps {
+  user: AuthUser | null;
   tasks: ResearchTask[];
-  activeRun: Run | null;
+  activeRun: any;
   onSelectTask: (task: ResearchTask) => void;
   onOpenNewModal: () => void;
   onNavigateTab: (tab: string) => void;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  CREATED: '#FFAA24',
+  RUNNING: '#60A5FA',
+  WAITING_APPROVAL: '#FBBF24',
+  COMPLETED: '#34D399',
+  FAILED: '#F87171',
+};
+
+const QUICK_ACTIONS = [
+  { id: 'literature', icon: Globe, title: 'Discover Literature', desc: 'Search Semantic Scholar, OpenAlex & Crossref', tone: 'var(--accent-blue)' },
+  { id: 'workspace', icon: GitBranch, title: 'Research Workspace', desc: 'Follow the live agent pipeline state machine', tone: 'var(--accent-purple)' },
+  { id: 'evaluation', icon: Award, title: 'Run Evaluation', desc: 'Benchmark the pipeline on real cases', tone: 'var(--accent-emerald)' },
+  { id: 'report', icon: FileText, title: 'View Report', desc: 'Read the latest synthesis with provenance', tone: 'var(--accent-primary)' },
+];
+
 export const Dashboard: React.FC<DashboardProps> = ({
-  tasks,
-  activeRun,
+  user,
   onSelectTask,
   onOpenNewModal,
   onNavigateTab,
 }) => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStats = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      setStats(await api.getDashboardStats());
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load dashboard statistics.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStats();
+    const t = setInterval(loadStats, 15000); // keep counts fresh while open
+    return () => clearInterval(t);
+  }, [loadStats]);
+
+  const firstName = (user?.full_name || '').split(/\s+/)[0];
+
+  if (isLoading && !stats) {
+    return (
+      <div className="page-view">
+        <SkeletonCard lines={2} />
+        <div className="stat-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          {[0, 1, 2, 3].map((i) => <SkeletonCard key={i} lines={1} />)}
+        </div>
+        <div className="grid-sidebar" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+          <SkeletonCard lines={5} />
+          <SkeletonCard lines={4} />
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !stats) {
+    return (
+      <div className="page-view">
+        <ErrorNote message={error} onRetry={loadStats} />
+      </div>
+    );
+  }
+
+  const s = stats!;
+  const hasAnyTask = s.tasks_total > 0;
+  const verificationTotal = s.claims_supported + s.claims_refuted + s.claims_insufficient;
+
   return (
     <div className="page-view">
-      {/* Hero Welcome Banner */}
+      {/* Welcome + hero */}
       <div className="card" style={{
-        background: 'linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%)',
-        borderColor: '#bfdbfe',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: '0 4px 20px -2px rgba(37, 99, 235, 0.08)'
+        position: 'relative', overflow: 'hidden',
+        background: 'linear-gradient(135deg, rgba(255,170,36,0.07) 0%, rgba(17,20,23,0) 55%), var(--bg-card)',
       }}>
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <span className="badge badge-indigo">
-                <Shield size={12} /> Evidence-First AI Architecture
-              </span>
-              <span className="badge badge-emerald">
-                <CheckCircle2 size={12} /> Reproducibility Verified
-              </span>
-              <span className="badge badge-cyan">
-                <Terminal size={12} /> Subprocess Sandbox Isolated
-              </span>
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', right: -40, top: -60, width: 260, height: 260,
+            background: `radial-gradient(circle, rgba(255,170,36,0.10) 0%, transparent 65%)`,
+            pointerEvents: 'none',
+          }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+              <span className="badge badge-amber-brand"><ShieldCheck size={12} /> Evidence-First Pipeline</span>
+              <span className="badge badge-slate">11-stage agent FSM</span>
             </div>
-            <h2 style={{ fontSize: '1.75rem', color: '#0f172a', marginBottom: '8px', fontWeight: 800 }}>
-              Evidence-Verified Autonomous AI Research Agent
+            <h2 style={{ fontSize: '1.65rem', fontWeight: 800, marginBottom: 8 }}>
+              {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
             </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', maxWidth: '720px', lineHeight: 1.55 }}>
-              ResearchPilot automates peer-reviewed literature retrieval, NLI claim verification, sandboxed code execution, 
-              and reproducible evaluation with formal cryptographic provenance and zero ungrounded hallucinations.
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: 640, lineHeight: 1.6 }}>
+              Retrieve literature, decompose and verify claims against sources, run sandboxed experiments,
+              and generate provenance-sealed research reports — all from one workspace.
             </p>
           </div>
-          <button className="btn btn-primary" onClick={onOpenNewModal} style={{ padding: '12px 24px', fontSize: '0.95rem' }}>
-            <Sparkles size={18} />
-            <span>Launch New Investigation</span>
+          <button className="btn btn-primary" onClick={onOpenNewModal} style={{ padding: '11px 20px', flexShrink: 0 }}>
+            <Plus size={16} /> New Investigation
           </button>
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>TOTAL INVESTIGATIONS</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>
-              <Cpu size={18} color="var(--accent-primary)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{tasks.length || 1}</div>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span className="badge badge-emerald" style={{ fontSize: '0.7rem' }}>
-              <TrendingUp size={12} /> Active FSM Engine
-            </span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>11 State Machine</span>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>CITATION PRECISION</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #a7f3d0' }}>
-              <ShieldCheck size={18} color="var(--accent-emerald)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>94.8%</div>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>vs 41.2% Standard LLM</span>
-            <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>+130% Gain</span>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>UNSUPPORTED CLAIM RATE</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: '#fff1f2', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #fecdd3' }}>
-              <FileCheck size={18} color="var(--accent-rose)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)' }}>4.8%</div>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>vs 38.5% Standard LLM</span>
-            <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>-87.5% Reduction</span>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.04em' }}>REPRODUCIBILITY SCORE</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: 'var(--radius-md)', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #c7d2fe' }}>
-              <Terminal size={18} color="var(--accent-indigo)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-indigo)' }}>99.5%</div>
-          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Deterministic Seed 42</span>
-            <span className="badge badge-indigo" style={{ fontSize: '0.68rem' }}>Strict Manifest</span>
-          </div>
-        </div>
+      {/* Quick actions (only real destinations) */}
+      <div className="stat-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {QUICK_ACTIONS.map((qa) => {
+          const Icon = qa.icon;
+          return (
+            <button key={qa.id} className="quick-action" onClick={() => onNavigateTab(qa.id)}>
+              <span className="quick-action-icon" style={{ background: `${qa.tone}1f`, border: `1px solid ${qa.tone}55` }}>
+                <Icon size={18} color={qa.tone} />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span className="quick-action-title" style={{ display: 'block' }}>{qa.title}</span>
+                <span className="quick-action-desc" style={{ display: 'block' }}>{qa.desc}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Visual Architecture Pipeline Graphic */}
-      <div className="card" style={{ padding: '24px' }}>
-        <div className="card-header" style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>
-              <GitBranch size={16} color="var(--accent-primary)" />
-            </div>
+      {/* Real KPI stats */}
+      <div className="stat-grid-4" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        <StatCard
+          label="Investigations"
+          value={fmtInt(s.tasks_total)}
+          hint={`${fmtInt(s.runs_total)} runs · ${fmtInt(s.runs_active)} active`}
+          icon={<Layers size={17} />}
+          tone="amber"
+        />
+        <StatCard
+          label="Verified Evidence"
+          value={verificationTotal > 0 ? fmtInt(s.claims_supported) : fmtInt(0)}
+          hint={
+            verificationTotal > 0
+              ? `of ${fmtInt(verificationTotal)} claims · ${fmtInt(s.claims_refuted)} refuted · ${fmtInt(s.claims_insufficient)} insufficient`
+              : 'No claims verified yet'
+          }
+          icon={<ShieldCheck size={17} />}
+          tone="emerald"
+        />
+        <StatCard
+          label="Experiments Run"
+          value={fmtInt(s.experiments_total)}
+          hint={s.experiments_total > 0 ? `${fmtInt(s.experiments_completed)} completed in sandbox` : 'No experiments generated yet'}
+          icon={<FlaskConical size={17} />}
+          tone="purple"
+        />
+        <StatCard
+          label="Reports Generated"
+          value={fmtInt(s.reports_total)}
+          hint={s.reports_total > 0 ? 'Each sealed with a SHA-256 provenance hash' : 'Reports appear after a run completes'}
+          icon={<FileText size={17} />}
+          tone="blue"
+        />
+      </div>
+
+      {/* Charts row — real data only */}
+      <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 20 }}>
+        {/* Activity over time */}
+        <div className="card chart-card">
+          <div className="card-header" style={{ marginBottom: 12 }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                End-to-End Autonomous Verification Pipeline
-              </h3>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Stage-gated information flow ensuring scientific validity and empirical rigor
-              </p>
+              <h3 className="section-heading">Research Activity</h3>
+              <p className="section-sub">Investigations created per day (last 14 days, from actual records)</p>
             </div>
           </div>
-          <span className="badge badge-indigo">Autonomous / Gated Switchable</span>
+          {s.activity_daily.length >= 2 ? (
+            <LineChart points={s.activity_daily.map((d) => ({ date: d.date, value: d.tasks }))} unit=" tasks" />
+          ) : (
+            <EmptyState
+              icon={<Compass size={20} />}
+              title="Not enough historical data yet"
+              description={
+                s.activity_daily.length === 1
+                  ? 'Only one day with recorded activity so far — a trend line needs at least two days of real data.'
+                  : 'No investigations have been created in the last 14 days. Launch one to start building your history.'
+              }
+              action={
+                <button className="btn btn-secondary" onClick={onOpenNewModal}>
+                  <Plus size={14} /> Start an investigation
+                </button>
+              }
+            />
+          )}
         </div>
 
-        {/* Pipeline Graphic Steps */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginTop: '8px' }}>
-          {[
-            {
-              icon: BookOpen,
-              stage: 'Stage 1-2',
-              title: 'Hybrid Corpus Retrieval',
-              desc: 'Sparse BM25 + Dense DPR with RRF Reciprocal Rank Fusion over scientific literature.',
-              badge: 'Corpus: arXiv/FEVER',
-              color: 'var(--accent-primary)',
-              bg: '#eff6ff'
-            },
-            {
-              icon: ShieldCheck,
-              stage: 'Stage 3-4',
-              title: 'Claim Decomposition & NLI',
-              desc: 'Atomic claim extraction, Natural Language Inference scoring, and passage alignment.',
-              badge: 'NLI Entailment: 94.8%',
-              color: 'var(--accent-emerald)',
-              bg: '#ecfdf5'
-            },
-            {
-              icon: FlaskConical,
-              stage: 'Stage 5-6',
-              title: 'Hypothesis & Experiment Gen',
-              desc: 'Automated test design, statistical variable parameterization, and isolated code gen.',
-              badge: 'Sandboxed Python',
-              color: 'var(--accent-indigo)',
-              bg: '#eef2ff'
-            },
-            {
-              icon: Terminal,
-              stage: 'Stage 7-8',
-              title: 'Sandbox Subprocess Run',
-              desc: 'Strict timeout, CPU/memory capped sandbox execution with SHA-256 manifest logging.',
-              badge: 'Timeout: 10.0s Limit',
-              color: 'var(--accent-amber)',
-              bg: '#fffbeb'
-            },
-            {
-              icon: Award,
-              stage: 'Stage 9-10',
-              title: 'Review & Synthesis Paper',
-              desc: 'Contradiction review loop, automated chart rendering, and formal PDF/MD report output.',
-              badge: 'Provenance Sealed',
-              color: 'var(--accent-purple)',
-              bg: '#f5f3ff'
-            }
-          ].map((step, idx) => {
-            const Icon = step.icon;
-            return (
-              <div
-                key={idx}
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px',
-                  boxShadow: 'var(--shadow-xs)',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: step.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={16} color={step.color} />
-                  </div>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)' }}>{step.stage}</span>
-                </div>
-                <h4 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 700 }}>{step.title}</h4>
-                <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.45, flex: 1 }}>{step.desc}</p>
-                <div style={{ marginTop: '6px' }}>
-                  <span className="badge badge-slate" style={{ fontSize: '0.65rem' }}>{step.badge}</span>
-                </div>
-              </div>
-            );
-          })}
+        {/* Task status distribution */}
+        <div className="card chart-card">
+          <div className="card-header" style={{ marginBottom: 12 }}>
+            <div>
+              <h3 className="section-heading">Task Status</h3>
+              <p className="section-sub">Distribution of {fmtInt(s.tasks_total)} investigations by current status</p>
+            </div>
+          </div>
+          {s.task_status_distribution.length > 0 ? (
+            <DonutChart
+              data={s.task_status_distribution.map((d) => ({
+                label: d.status.replace(/_/g, ' '),
+                value: d.count,
+                color: STATUS_COLORS[d.status.toUpperCase()] || '#4A5058',
+              }))}
+              centerLabel="investigations"
+            />
+          ) : (
+            <EmptyState
+              icon={<Layers size={20} />}
+              title="No tasks recorded"
+              description="Create your first investigation to see its lifecycle status here."
+              action={
+                <button className="btn btn-secondary" onClick={onOpenNewModal}>
+                  <Plus size={14} /> New Investigation
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
 
-      {/* Main Grid: Recent Tasks & Benchmark Spotlight */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        {/* Recent Tasks */}
+      {/* Recent investigations + domain breakdown */}
+      <div className="grid-sidebar" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, alignItems: 'start' }}>
+        {/* Recent tasks table */}
         <div className="card">
-          <div className="card-header">
+          <div className="card-header" style={{ marginBottom: 14 }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>Recent Investigations</h3>
-              <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>Click any task to inspect active state graph and trace</p>
+              <h3 className="section-heading">Recent Investigations</h3>
+              <p className="section-sub">Select a task to open it in the Research Workspace</p>
             </div>
-            <button className="btn btn-secondary" onClick={() => onNavigateTab('workspace')}>
-              <span>View Workspace</span>
-              <ArrowRight size={14} />
+            <button className="btn btn-secondary" style={{ padding: '6px 13px', fontSize: '0.76rem' }} onClick={() => onNavigateTab('history')}>
+              View History <ArrowRight size={13} />
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {tasks.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                <Layers size={32} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-                <p>No research tasks created yet. Click "Launch New Investigation" to start.</p>
-              </div>
-            ) : (
-              tasks.map((t) => (
-                <div
-                  key={t.id}
-                  onClick={() => onSelectTask(t)}
-                  style={{
-                    padding: '14px 18px',
-                    background: '#ffffff',
-                    border: '1px solid var(--border-subtle)',
-                    borderRadius: 'var(--radius-md)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    boxShadow: 'var(--shadow-xs)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#bfdbfe';
-                    e.currentTarget.style.background = '#f8fafc';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-subtle)';
-                    e.currentTarget.style.background = '#ffffff';
-                  }}
-                >
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '75%' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="mono badge badge-indigo" style={{ fontSize: '0.7rem' }}>{t.id}</span>
-                      <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>{t.domain}</span>
-                      <span className="badge badge-slate" style={{ fontSize: '0.7rem' }}>{t.execution_mode}</span>
-                    </div>
-                    <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {t.question}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                      Created: {new Date(t.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span className="badge badge-emerald" style={{ fontSize: '0.72rem' }}>
-                      {t.status}
-                    </span>
-                    <ArrowRight size={16} color="var(--accent-primary)" />
-                  </div>
+          {s.recent_tasks.length === 0 ? (
+            <EmptyState
+              icon={<Search size={20} />}
+              title="No investigations yet"
+              description="Launch your first evidence-verified investigation, or explore the literature index while you plan one."
+              action={
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button className="btn btn-primary" onClick={onOpenNewModal}>
+                    <Plus size={14} /> New Investigation
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => onNavigateTab('literature')}>
+                    <BookOpen size={14} /> Browse Literature
+                  </button>
                 </div>
-              ))
+              }
+            />
+          ) : (
+            <div className="table-container">
+              <table className="formal-table">
+                <thead>
+                  <tr>
+                    <th>Question</th>
+                    <th>Domain</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th aria-label="Open" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.recent_tasks.map((t) => (
+                    <tr
+                      key={t.id}
+                      onClick={() => onSelectTask(t)}
+                      style={{ cursor: 'pointer' }}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter') onSelectTask(t); }}
+                    >
+                      <td style={{ maxWidth: 340 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.84rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={t.question}>
+                          {t.question}
+                        </div>
+                        <div className="mono" style={{ fontSize: 10.5, color: 'var(--text-light)', marginTop: 2 }}>{t.id}</div>
+                      </td>
+                      <td><span className="badge badge-slate">{t.domain}</span></td>
+                      <td><span className="badge badge-slate">{t.execution_mode}</span></td>
+                      <td><StatusBadge status={t.status} /></td>
+                      <td style={{ whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.78rem' }}>{fmtDate(t.created_at)}</td>
+                      <td><ArrowRight size={14} color="var(--text-light)" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Domain breakdown + pipeline overview */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card chart-card">
+            <div className="card-header" style={{ marginBottom: 12 }}>
+              <div>
+                <h3 className="section-heading">Domains Explored</h3>
+                <p className="section-sub">Investigations grouped by declared domain</p>
+              </div>
+            </div>
+            {s.task_domain_distribution.length > 0 ? (
+              <BarChart
+                data={s.task_domain_distribution.map((d) => ({
+                  label: d.domain.length > 14 ? d.domain.slice(0, 13) + '…' : d.domain,
+                  value: d.count,
+                }))}
+                height={150}
+              />
+            ) : (
+              <EmptyState
+                icon={<Compass size={18} />}
+                title="No domain data yet"
+                description="Domains are derived from the investigations you create."
+              />
             )}
           </div>
-        </div>
 
-        {/* Evaluation & Benchmark Spotlight Card */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div>
-            <div className="card-header">
+          <div className="card">
+            <div className="card-header" style={{ marginBottom: 12 }}>
               <div>
-                <h3 style={{ fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 700 }}>Benchmark Spotlight</h3>
-                <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>4 Architecture Comparative Metrics</p>
-              </div>
-              <BarChart3 size={20} color="var(--accent-primary)" />
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ResearchPilot (Our System)</span>
-                  <strong style={{ color: 'var(--accent-emerald)' }}>94.8% Precision</strong>
-                </div>
-                <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: '94.8%', height: '100%', background: 'linear-gradient(90deg, #059669, #10b981)' }} />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Agentic RAG Baseline</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>76.0% Precision</span>
-                </div>
-                <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: '76%', height: '100%', background: '#60a5fa' }} />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Basic RAG Baseline</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>67.5% Precision</span>
-                </div>
-                <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: '67.5%', height: '100%', background: '#94a3b8' }} />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Standard Zero-Shot LLM</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>41.2% Precision</span>
-                </div>
-                <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ width: '41.2%', height: '100%', background: '#cbd5e1' }} />
-                </div>
+                <h3 className="section-heading">Corpus Index</h3>
+                <p className="section-sub">Documents available for retrieval & verification</p>
               </div>
             </div>
-          </div>
-
-          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
-            <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => onNavigateTab('evaluation')}>
-              <BarChart3 size={15} />
-              <span>Explore Benchmark Suite & Ablations</span>
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <BookOpen size={15} color="var(--accent-blue)" /> Active retrieval corpus
+                </span>
+                <strong className="mono" style={{ fontSize: '0.95rem' }}>{fmtInt(s.corpus_active)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <Layers size={15} color="var(--accent-purple)" /> Benchmark suites executed
+                </span>
+                <strong className="mono" style={{ fontSize: '0.95rem' }}>{fmtInt(s.benchmark_runs_total)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                  <Bookmark size={15} color="var(--accent-emerald)" /> Papers in your library
+                </span>
+                <strong className="mono" style={{ fontSize: '0.95rem' }}>{fmtInt(s.saved_papers_total)}</strong>
+              </div>
+              <button className="btn btn-secondary" style={{ marginTop: 6 }} onClick={() => onNavigateTab('literature')}>
+                <Globe size={14} /> Discover & import more papers
+              </button>
+            </div>
           </div>
         </div>
       </div>

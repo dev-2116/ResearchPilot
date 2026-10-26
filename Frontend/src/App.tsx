@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { NewResearchModal } from './components/NewResearchModal';
@@ -12,6 +12,9 @@ import { MidSemDemo } from './pages/MidSemDemo';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { LiteratureDiscovery } from './pages/LiteratureDiscovery';
+import { SavedPapers } from './pages/SavedPapers';
+import { ResearchHistory } from './pages/ResearchHistory';
+import { SettingsPage } from './pages/Settings';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { api } from './services/api';
@@ -27,11 +30,16 @@ import {
   Run,
 } from './types';
 
+export const TAB_IDS = [
+  'dashboard', 'literature', 'workspace', 'evidence',
+  'experiment', 'evaluation', 'report', 'saved', 'history', 'settings', 'core',
+] as const;
+
 export const AppInner: React.FC = () => {
   const { user, isLoading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
-  const [activeTab, setActiveTab] = useState<string>('core');
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiConnected, setApiConnected] = useState(true);
 
@@ -143,38 +151,46 @@ const AuthenticatedApp: React.FC<any> = (props) => {
 
   const { showToast } = useToast();
 
-  // Initial Data Fetching
+  /** Load the latest existing run of a task (if any) WITHOUT starting a new
+   * one. The user stays in control of when a run is launched (HCI Rule 7). */
+  const loadLatestRunForTask = useCallback(async (task: ResearchTask) => {
+    setClaims([]);
+    setExperiment(null);
+    setReport(null);
+    setActiveRun(null);
+    try {
+      const runs = await api.listTaskRuns(task.id);
+      if (runs.length === 0) return;
+      const latest = await api.getRun(runs[0].run_id); // full run incl. steps
+      setActiveRun(latest);
+      try { setClaims(await api.getRunEvidence(latest.run_id)); } catch { /* no evidence yet */ }
+      try {
+        const exp = await api.getRunExperiment(latest.run_id);
+        if (exp) setExperiment(exp);
+      } catch { /* none yet */ }
+      if (latest.status === 'COMPLETED') {
+        try { setReport(await api.getFinalReport(latest.run_id)); } catch { /* none yet */ }
+      }
+    } catch (err) {
+      console.warn('Failed to load runs for task:', err);
+    }
+  }, []);
+
+  // Initial Data Fetching — no fabricated demo tasks; empty state is honest.
   useEffect(() => {
     const initData = async () => {
       try {
         const fetchedTasks = await api.listTasks();
         setTasks(fetchedTasks);
 
-        const cases = await api.getBenchmarkCases();
-        setBenchmarkCases(cases);
+        api.getBenchmarkCases()
+          .then((cases) => setBenchmarkCases(cases))
+          .catch((e) => console.warn('Benchmark cases unavailable:', e));
 
-        try {
-          const midsemData = await api.getMidSemQuestions();
-          setMidsemQuestions(midsemData.questions || []);
-        } catch (e) {
-          console.warn('Failed to load midsem questions:', e);
-        }
+        api.getMidSemQuestions()
+          .then((d) => setMidsemQuestions(d.questions || []))
+          .catch((e) => console.warn('Failed to load midsem questions:', e));
 
-        // If tasks exist, load the latest one
-        if (fetchedTasks.length > 0) {
-          handleSelectTask(fetchedTasks[0]);
-        } else {
-          const initialTask = await api.createTask({
-            question: 'How does hybrid BM25 and dense retrieval compare against dense-only embeddings in scientific domain QA?',
-            domain: 'Artificial Intelligence & RAG',
-            constraints: 'Evaluate recall and latency on technical terminology',
-            execution_mode: 'autonomous'
-          });
-          const initialRun = await api.startRun(initialTask.id, 'autonomous');
-          setTasks([initialTask]);
-          setSelectedTask(initialTask);
-          setActiveRun(initialRun);
-        }
         setApiConnected(true);
       } catch (err) {
         console.error('API connection check failed:', err);
@@ -182,6 +198,14 @@ const AuthenticatedApp: React.FC<any> = (props) => {
       }
     };
     initData();
+  }, []);
+
+  const refreshTasks = useCallback(async () => {
+    try {
+      setTasks(await api.listTasks());
+    } catch (err) {
+      console.warn('Failed to refresh tasks:', err);
+    }
   }, []);
 
   // Poll active run progress
@@ -210,14 +234,15 @@ const AuthenticatedApp: React.FC<any> = (props) => {
           try {
             const rep = await api.getFinalReport(activeRun.run_id);
             setReport(rep);
-          } catch (e) {}
+          } catch (e) { /* report not ready */ }
           clearInterval(pollRef.current);
 
           showToast({
             title: 'Investigation Completed',
-            message: `Research run finished with ${updatedRun.claims_count || 3} verified claims.`,
+            message: `Research run finished with ${updatedRun.claims_count ?? 0} decomposed claims.`,
             type: 'success'
           });
+          refreshTasks();
         }
       } catch (err) {
         console.error('Polling error:', err);
@@ -227,27 +252,31 @@ const AuthenticatedApp: React.FC<any> = (props) => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [activeRun?.run_id, activeRun?.status]);
+  }, [activeRun?.run_id, activeRun?.status, refreshTasks, showToast]);
 
-  const handleSelectTask = async (task: ResearchTask) => {
+  /** Select a task and load its latest run (explicit, no side-effect runs). */
+  const handleSelectTask = useCallback(async (task: ResearchTask) => {
     setSelectedTask(task);
-    try {
-      const currentRun = activeRun?.task_id === task.id ? activeRun : null;
-      if (currentRun) {
-        setActiveRun(currentRun);
-      } else {
-        const newRun = await api.startRun(task.id, task.execution_mode);
-        setActiveRun(newRun);
-      }
+    await loadLatestRunForTask(task);
+  }, [loadLatestRunForTask]);
 
-      const fetchedClaims = await api.getRunEvidence(activeRun?.run_id || task.id);
-      setClaims(fetchedClaims);
-      const exp = await api.getRunExperiment(activeRun?.run_id || task.id);
-      setExperiment(exp);
+  /** Explicitly start a run for the selected task (user-initiated action). */
+  const handleStartRun = useCallback(async (task: ResearchTask, mode?: ExecutionMode) => {
+    try {
+      const newRun = await api.startRun(task.id, mode || task.execution_mode || 'autonomous');
+      setActiveRun(newRun);
+      setClaims([]);
+      setExperiment(null);
+      setReport(null);
+      showToast({
+        title: 'Run Started',
+        message: `Agent pipeline launched for ${task.id} (${newRun.execution_mode} mode).`,
+        type: 'info'
+      });
     } catch (err) {
-      console.warn('Error syncing task selection:', err);
+      showToast({ title: 'Run Failed to Start', message: String(err), type: 'error' });
     }
-  };
+  }, [showToast]);
 
   const handleCreateTask = async (data: {
     question: string;
@@ -310,15 +339,15 @@ const AuthenticatedApp: React.FC<any> = (props) => {
   const handleReexecuteExperiment = async (expId: string) => {
     setIsReexecuting(true);
     try {
-      await api.reexecuteExperiment(expId);
+      const res = await api.reexecuteExperiment(expId);
       if (activeRun) {
         const exp = await api.getRunExperiment(activeRun.run_id);
         setExperiment(exp);
       }
       showToast({
         title: 'Experiment Re-executed',
-        message: 'Sandbox run completed successfully.',
-        type: 'success'
+        message: `Sandbox run finished (exit code ${res?.exit_code ?? '—'}).`,
+        type: res?.exit_code === 0 ? 'success' : 'warning'
       });
     } catch (err) {
       showToast({
@@ -338,7 +367,7 @@ const AuthenticatedApp: React.FC<any> = (props) => {
       setBenchmarkResult(res);
       showToast({
         title: 'Benchmark Finished',
-        message: `Tested ${res.case_results?.length || limit} benchmark cases.`,
+        message: `Tested ${res.case_results?.length ?? 0} benchmark cases.`,
         type: 'success'
       });
     } catch (err) {
@@ -392,6 +421,7 @@ const AuthenticatedApp: React.FC<any> = (props) => {
         setActiveTab={setActiveTab}
         evidenceCount={claims.length}
         hasReport={!!report}
+        savedCount={undefined}
       />
 
       <div className="main-content">
@@ -401,28 +431,15 @@ const AuthenticatedApp: React.FC<any> = (props) => {
           apiConnected={apiConnected}
           user={user}
           onLogout={logout}
+          onToggleSidebar={() => {
+            const el = document.querySelector('.sidebar');
+            el?.classList.toggle('open');
+          }}
         />
-
-
-
-        {activeTab === 'core' && (
-          <MidSemDemo
-            questions={midsemQuestions}
-            onExecuteQuestion={handleExecuteMidSemQuestion}
-            isLoading={isLoadingTask || (activeRun !== null && activeRun.status === 'RUNNING')}
-            activeRun={activeRun}
-            claims={claims}
-            report={report}
-            onNavigateTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'literature' && (
-          <LiteratureDiscovery />
-        )}
 
         {activeTab === 'dashboard' && (
           <Dashboard
+            user={user}
             tasks={tasks}
             activeRun={activeRun}
             onSelectTask={(t: ResearchTask) => {
@@ -434,11 +451,16 @@ const AuthenticatedApp: React.FC<any> = (props) => {
           />
         )}
 
+        {activeTab === 'literature' && (
+          <LiteratureDiscovery />
+        )}
+
         {activeTab === 'workspace' && (
           <ResearchWorkspace
             task={selectedTask}
             run={activeRun}
             onApproveGated={handleApproveGated}
+            onStartRun={handleStartRun}
             onNavigateTab={setActiveTab}
             isApproving={isApproving}
           />
@@ -467,6 +489,37 @@ const AuthenticatedApp: React.FC<any> = (props) => {
 
         {activeTab === 'report' && (
           <ReportViewer report={report} isLoading={false} />
+        )}
+
+        {activeTab === 'saved' && (
+          <SavedPapers onNavigateTab={setActiveTab} />
+        )}
+
+        {activeTab === 'history' && (
+          <ResearchHistory
+            entries={tasks}
+            onSelectTask={(t: ResearchTask) => {
+              handleSelectTask(t);
+              setActiveTab('workspace');
+            }}
+            onRefresh={refreshTasks}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsPage user={user} onLogout={logout} />
+        )}
+
+        {activeTab === 'core' && (
+          <MidSemDemo
+            questions={midsemQuestions}
+            onExecuteQuestion={handleExecuteMidSemQuestion}
+            isLoading={isLoadingTask || (activeRun !== null && activeRun.status === 'RUNNING')}
+            activeRun={activeRun}
+            claims={claims}
+            report={report}
+            onNavigateTab={setActiveTab}
+          />
         )}
       </div>
 

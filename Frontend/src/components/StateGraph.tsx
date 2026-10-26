@@ -36,27 +36,23 @@ export const StateGraph: React.FC<StateGraphProps> = ({
 
   return (
     <div className="state-graph-container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>
-            <GitCommit size={18} color="var(--accent-primary)" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="card-icon-tile">
+            <GitCommit size={17} />
           </div>
           <div>
-            <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-              Agent State-Machine Pipeline Execution
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 700 }}>
+              Agent State-Machine Pipeline
             </h3>
-            <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
-              Deterministic 11-State Finite State Machine with verification feedback loop and provenance hashes.
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Ten recorded stages with a verification feedback loop — click a node to inspect its payloads.
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <span className="badge badge-indigo">
-            Deterministic FSM
-          </span>
-          <span className="badge badge-emerald">
-            Evidence-Gated
-          </span>
+        <div style={{ display: 'flex', gap: 7 }}>
+          <span className="badge badge-slate">Deterministic FSM</span>
+          <span className="badge badge-emerald">Evidence-gated</span>
         </div>
       </div>
 
@@ -77,32 +73,29 @@ export const StateGraph: React.FC<StateGraphProps> = ({
               <div
                 className={`state-node ${nodeStatus} ${isSelected ? 'selected' : ''}`}
                 onClick={() => onSelectStep(idx + 1)}
-                style={{
-                  background: isSelected ? '#f1f5f9' : 'transparent',
-                  outline: isSelected ? '2px solid var(--accent-primary)' : 'none',
-                  outlineOffset: '4px',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '6px 4px'
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStep(idx + 1); } }}
+                role="button"
+                tabIndex={0}
+                aria-label={`${state.label}: ${state.description}${matchedStep ? `, ${matchedStep.latency_ms}ms` : ''}`}
               >
                 <div className="state-node-circle">
                   {nodeStatus === 'completed' ? (
-                    <Check size={18} strokeWidth={2.5} />
+                    <Check size={17} strokeWidth={2.5} />
                   ) : nodeStatus === 'waiting' ? (
-                    <Clock size={18} strokeWidth={2.5} />
+                    <Clock size={17} strokeWidth={2.5} />
                   ) : nodeStatus === 'active' ? (
-                    <PlayCircle size={18} strokeWidth={2.5} />
+                    <PlayCircle size={17} strokeWidth={2.5} />
                   ) : (
                     <span>{idx + 1}</span>
                   )}
                 </div>
                 <span className="state-node-label">{state.label}</span>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.64rem', color: 'var(--text-light)', textAlign: 'center' }}>
                   {state.description}
                 </span>
 
                 {matchedStep && (
-                  <span className="mono badge badge-slate" style={{ fontSize: '0.62rem', padding: '1px 5px', marginTop: '2px' }}>
+                  <span className="mono badge badge-slate" style={{ fontSize: '0.6rem', padding: '1px 5px' }}>
                     {matchedStep.latency_ms}ms
                   </span>
                 )}
