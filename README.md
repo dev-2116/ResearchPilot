@@ -28,7 +28,7 @@ ResearchPilot is a full-stack research assistant that runs a controlled, traceab
 
 - **Research dashboard** — create research tasks, launch runs, follow the pipeline on a live state graph, inspect evidence, experiments, and reports.
 - **11-step agent pipeline** — `PLAN → RETRIEVE → EXTRACT_EVIDENCE → VERIFY → DESIGN_EXPERIMENT → GENERATE_CODE → EXECUTE → EVALUATE → REVIEW → REPORT → COMPLETE`, implemented as an explicit state machine with step budgets rather than an unbounded loop.
-- **Hybrid retrieval** — BM25 + dense semantic scoring with reciprocal-rank fusion over a preloaded academic corpus, plus optional live lookups against public scholarly APIs (Semantic Scholar, OpenAlex, CrossRef — no API keys required).
+- **Hybrid retrieval with cross-encoder reranking** — BM25 + dense semantic embeddings (all-MiniLM-L6-v2) fused with true Reciprocal Rank Fusion (k=60), then a cross-encoder reranker (`cross-encoder/ms-marco-MiniLM-L-6-v2`) refines only the fused candidate set; an optionally configured, label-calibrated relevance threshold (`RESEARCHPILOT_MIN_RERANKER_SCORE`) suppresses irrelevant results. Plus optional live lookups against public scholarly APIs (Semantic Scholar, OpenAlex, CrossRef — no API keys required). See `docs/retrieval_reranking.md`.
 - **Claim-level provenance** — every claim maps to evidence passages with support scores, entailment labels, and full citation metadata; retrieval relevance alone never counts as support.
 - **Sandboxed experiments** — generated Python code executes in an isolated subprocess with a hard timeout and restricted environment; a deterministic random seed and a SHA-256-hashed manifest make every run reproducible and auditable.
 - **JWT-secured multi-user access** — register/login with bcrypt password hashing.
@@ -43,14 +43,15 @@ Read this before contributing, so expectations match the code.
 
 - FastAPI backend with 26 endpoints (verified via `/openapi.json`), JWT authentication, and SQLite persistence with 14 auto-initialized tables.
 - React 18 + Vite 5 dashboard; production build type-checks cleanly.
-- pytest suite: 13 tests across five test files, all passing.
-- Hybrid retrieval, evidence extraction, heuristic claim verification, sandboxed experiment execution, report generation, and the full end-to-end pipeline.
+- pytest suite: 53 tests across eight test files, all passing.
+- Hybrid retrieval (BM25 + dense embeddings + true RRF fusion), cross-encoder reranking (`cross-encoder/ms-marco-MiniLM-L-6-v2`, lazy-loaded, candidates-only), a label-calibrated relevance threshold workflow (`scripts/calibrate_threshold.py`), evidence extraction, heuristic claim verification, sandboxed experiment execution, report generation, and the full end-to-end pipeline. See `docs/retrieval_reranking.md`.
 
 **Deterministic simulations (by design, clearly labeled in code):**
 
 - Experiment metrics are produced by synthetic-data experiments (seed 42) generated from a sandbox template. They exercise the entire pipeline and its reproducibility machinery, but they are not measurements from real machine-learning experiments.
 - The benchmark comparison computes its metric table from a fixed, code-defined dataset.
 - Claim verification is a heuristic scorer, not a neural NLI model.
+- The shipped query-relevance labels (`Backend/eval/labels/query_relevance_labels.sample.jsonl`) are developer-authored demonstration labels, not human-verified ground truth; calibration reports flag this automatically. The retrieval evaluation in `docs/retrieval_reranking.md` is measured on that demo set.
 
 **Roadmap targets (not current behavior):** wiring an external LLM (e.g. Google Gemini via the reserved `LLM_API_KEY`), PostgreSQL + pgvector persistence, Docker-isolated experiment execution, and the empirical benchmark study described under *Research Design and Roadmap*.
 
@@ -63,6 +64,7 @@ Read this before contributing, so expectations match the code.
 | Authentication | bcrypt + python-jose (HS256 JWT) |
 | Data | SQLite via the standard library (`sqlite3`); PostgreSQL/pgvector is a roadmap target |
 | Retrieval & analysis | httpx, numpy, scikit-learn, matplotlib |
+| Reranking & embeddings | sentence-transformers (cross-encoder reranker + MiniLM dense embeddings; CPU sufficient) |
 | Configuration | python-dotenv (`.env` support) |
 | Testing | pytest |
 
@@ -77,7 +79,9 @@ FastAPI / Uvicorn (http://127.0.0.1:8000)
    ├─ app/api/endpoints.py       tasks, runs, trace, evidence, experiments,
    │                             artifacts, benchmarks, literature, midsem…
    ├─ app/services/orchestrator.py   11-step state machine (background task)
-   ├─ app/services/retrieval.py      hybrid BM25 + dense fusion, RRF
+   ├─ app/services/retrieval.py      BM25 + dense embeddings → RRF →
+   │                                 cross-encoder rerank → threshold → top_k
+   ├─ app/services/calibration.py    label-calibrated relevance threshold
    ├─ app/services/paper_fetcher.py  live scholarly APIs (no keys)
    ├─ app/services/verifier.py       claim–evidence support scoring
    ├─ app/services/sandbox.py        subprocess experiment runner
@@ -101,14 +105,20 @@ ResearchPilot/
 │   │   ├── core/config.py      # Settings, .env loading, runtime directories
 │   │   ├── db/database.py      # SQLite schema (14 tables), init_db(), queries
 │   │   ├── models/schemas.py   # Pydantic request/response models
-│   │   ├── services/           # orchestrator, retrieval, verifier, sandbox,
-│   │   │                       #   report, benchmark, paper_fetcher, corpus, midsem_qa
+│   │   ├── services/           # orchestrator, retrieval, calibration, verifier,
+│   │   │                       #   sandbox, report, benchmark, paper_fetcher,
+│   │   │                       #   corpus, midsem_qa
 │   │   └── main.py             # FastAPI app; startup runs init_db + config report
-│   ├── tests/                  # pytest suite (api, retrieval, verifier, sandbox, paper_fetcher)
+│   ├── scripts/                # calibrate_threshold.py, evaluate_retrieval.py
+│   ├── eval/labels/            # labelled query-relevance dataset: template,
+│   │                           #   demo sample, labelling instructions (README)
+│   ├── tests/                  # pytest suite (api, retrieval+reranking,
+│   │                           #   calibration, verifier, sandbox, paper_fetcher,
+│   │                           #   integration smoke)
 │   ├── requirements.txt        # pinned-minimum Python dependencies
 │   ├── .env.example            # configuration template with explanations
 │   ├── pytest.ini              # sets pythonpath=. (run pytest from Backend/)
-│   ├── data/                   # runtime: SQLite DB — git-ignored, auto-created
+│   ├── data/                   # runtime: SQLite DB, calibration reports — git-ignored
 │   └── artifacts/              # runtime: per-run experiment outputs — git-ignored
 ├── Frontend/
 │   ├── src/pages/              # Dashboard, ResearchWorkspace, EvidenceExplorer,
@@ -120,7 +130,10 @@ ResearchPilot/
 │   ├── src/types/index.ts      # shared TypeScript types
 │   ├── vite.config.ts          # dev port 5173, /api proxy → 127.0.0.1:8000
 │   └── package.json            # scripts: dev, build (tsc && vite build), preview
-├── docs/examples/research-pipeline/   # curated real-run artifact example + provenance
+├── docs/
+│   ├── examples/research-pipeline/   # curated real-run artifact example + provenance
+│   └── retrieval_reranking.md        # retrieval pipeline, reranker, threshold
+│                                     #   calibration workflow, evaluation results
 ├── .gitignore                  # excludes deps, caches, env files, runtime data
 └── README.md
 ```
@@ -209,6 +222,13 @@ Copy `Backend/.env.example` to `Backend/.env` and fill in values you need. The e
 | `LLM_MODEL` | `researchpilot-verifier-v1` | Model identifier recorded in traces and manifests. |
 | `JWT_SECRET_KEY` | *(ephemeral random)* | Signs auth tokens. Required for real deployments; if unset, a random per-process key is used with a clear notice, and sessions reset on restart. Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `JWT_ALGORITHM` | `HS256` | JWT signing algorithm. |
+| `RESEARCHPILOT_RERANKER_MODEL` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder used to rerank fused candidates. Lazy-loaded on first search; ~80 MB HuggingFace download on first use. |
+| `RESEARCHPILOT_RERANKER_ENABLED` | `true` | Master switch for reranking. `false` ranks by RRF fusion only. |
+| `RESEARCHPILOT_RERANKER_CANDIDATES` | `25` | How many fused candidates enter the reranker. |
+| `RESEARCHPILOT_RERANKER_MAX_PER_PAPER` | `2` | Max chunks per paper in candidates and results. |
+| `RESEARCHPILOT_RERANKER_BATCH_SIZE` | `16` | Cross-encoder inference batch size. |
+| `RESEARCHPILOT_MIN_RERANKER_SCORE` | *(unset)* | Minimum raw reranker score for a result to be returned. **Unset = no filtering** — set it only to a value produced by the calibration workflow (`Backend/scripts/calibrate_threshold.py`) for the same reranker model. |
+| `RESEARCHPILOT_EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | Dense-stage embedding model; falls back to lexical overlap when unavailable. |
 
 On startup the API prints a configuration report naming which variables are set or missing. It never prints secret values: database URLs are reduced to their scheme (`sqlite://***`), and keys are reported only as *set (value hidden)*.
 
@@ -248,7 +268,7 @@ cd ResearchPilot\Backend
 python -m pytest tests -v
 ```
 
-The suite contains 13 tests across five files: `test_api.py` (end-to-end pipeline, benchmark, and midsem endpoints), `test_retrieval.py`, `test_verifier.py`, `test_sandbox.py`, and `test_paper_fetcher.py`. Run pytest from the `Backend` directory (`pytest.ini` sets `pythonpath = .`). All 13 tests passed when this documentation was last verified.
+The suite contains 53 tests across eight files: `test_api.py` (end-to-end pipeline, benchmark, and midsem endpoints), `test_retrieval.py` (hybrid retrieval contract), `test_reranking.py` (RRF, reranking, thresholds, caps, caches — mocked inference), `test_calibration.py` (label validation, threshold metrics, tie/single-class handling, CV separation), `test_integration_reranker.py` (real-model smoke; skips automatically when models are unavailable), `test_verifier.py`, `test_sandbox.py`, and `test_paper_fetcher.py`. Run pytest from the `Backend` directory (`pytest.ini` sets `pythonpath = .`). All 53 tests passed when this documentation was last verified.
 
 ## Database and Artifacts
 
@@ -277,4 +297,4 @@ Add your chosen license here (for example, MIT or Apache 2.0).
 
 ## Status
 
-This project is under active development. The documentation above was verified against the codebase on 2026-10-26: every command was executed on Linux (Python 3.12.15, Node 24.21.0, npm 11.19.0), and the Windows PowerShell commands use standard, equivalent syntax. Backend behavior was confirmed via live requests to `/health`, `/docs`, and `/openapi.json`, and the frontend via `npm run dev`, `npm run build`, and `npm run preview`.
+This project is under active development. The documentation above was verified against the codebase on 2026-10-28: every command was executed on Linux (Python 3.12.16, Node 24.21.0, npm 11.19.0), and the Windows PowerShell commands use standard, equivalent syntax. Backend behavior was confirmed via live requests to `/health`, `/docs`, and `/openapi.json`, and the frontend via `npm run dev`, `npm run build`, and `npm run preview`. The retrieval reranking and threshold-calibration workflow is documented in `docs/retrieval_reranking.md`.

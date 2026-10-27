@@ -12,3 +12,6 @@ python-multipart>=0.0.9
 python-dotenv>=1.0.0
 passlib[bcrypt]>=1.7.4
 python-jose[cryptography]>=3.3.0
+# Cross-encoder reranking + dense embedding retrieval (app/services/retrieval.py).
+# Installs PyTorch (CPU wheels are sufficient: pip install torch --index-url https://download.pytorch.org/whl/cpu).
+sentence-transformers>=2.7.0

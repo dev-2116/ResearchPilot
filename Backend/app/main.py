@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.endpoints import router as api_router
 from app.api.auth import router as auth_router
-from app.core.config import ARTIFACTS_DIR, settings
+from app.core.config import ARTIFACTS_DIR, describe_reranker_threshold, settings
 from app.db.database import init_db
 
 @asynccontextmanager
@@ -41,6 +41,9 @@ def _report_configuration():
     print(f"[config] LLM_API_KEY: {llm_status}")
     print(f"[config] LLM_MODEL: {settings.LLM_MODEL}")
     print(f"[config] JWT_SECRET_KEY: {jwt_status}")
+    print(f"[config] RERANKER_MODEL: {settings.RERANKER_MODEL} (lazy-loaded on first search)")
+    print(f"[config] EMBEDDING_MODEL: {settings.EMBEDDING_MODEL} (lazy-loaded; lexical fallback if unavailable)")
+    print(f"[config] MIN_RERANKER_SCORE: {describe_reranker_threshold()}")
     print("[config] See Backend/.env.example for all supported variables.")
 
 app = FastAPI(
