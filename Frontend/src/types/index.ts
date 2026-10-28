@@ -268,6 +268,14 @@ export interface LiteratureSearchResult {
 
 // ── Dashboard statistics (real aggregates from the backend) ──────────────────
 
+export interface MonthlyInvestigation {
+  month: string;
+  month_full: string;
+  month_num: number;
+  year: number;
+  count: number;
+}
+
 export interface DashboardStats {
   tasks_total: number;
   runs_total: number;
@@ -286,7 +294,9 @@ export interface DashboardStats {
   corpus_active: number;
   benchmark_runs_total: number;
   saved_papers_total: number;
-  task_status_distribution: Array<{ status: string; count: number }>;
+  monthly_investigations: MonthlyInvestigation[];
+  investigations_year?: number;
+  task_status_distribution?: Array<{ status: string; count: number }>;
   task_domain_distribution: Array<{ domain: string; count: number }>;
   activity_daily: Array<{ date: string; tasks: number }>;
   recent_tasks: ResearchTask[];

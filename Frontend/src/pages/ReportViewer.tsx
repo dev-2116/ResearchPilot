@@ -48,30 +48,30 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
                  color: #111827; background: #ffffff; font-size: 10pt; line-height: 1.55; }
           .paper-header { border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 20px; }
           .journal-tag { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.08em;
-                         color: #B45309; font-weight: 700; margin-bottom: 6px; }
-          h1.paper-title { font-size: 17pt; font-weight: 800; line-height: 1.25; color: #0f172a; margin-bottom: 10px; }
+                         color: #3695F5; font-weight: 700; margin-bottom: 6px; }
+          h1.paper-title { font-size: 17pt; font-weight: 800; line-height: 1.25; color: #1E293B; margin-bottom: 10px; }
           .meta-strip { display: flex; flex-direction: column; gap: 3px; font-size: 8.5pt; color: #475569;
-                        background: #f8fafc; padding: 8px 12px; border-radius: 4px; border: 1px solid #e2e8f0; }
+                        background: #F8FAFC; padding: 8px 12px; border-radius: 4px; border: 1px solid #E2E8F0; }
           .section { margin-bottom: 20px; page-break-inside: avoid; }
-          h2.section-title { font-size: 11.5pt; font-weight: 700; color: #92400e; border-bottom: 1px solid #cbd5e1;
+          h2.section-title { font-size: 11.5pt; font-weight: 700; color: #2563EB; border-bottom: 1px solid #CBD5E1;
                              padding-bottom: 4px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-          p.lead { color: #1e293b; margin-bottom: 10px; }
-          .methodology-box { background: #f8fafc; border-left: 3px solid #B45309; padding: 10px 14px;
+          p.lead { color: #1E293B; margin-bottom: 10px; }
+          .methodology-box { background: #F8FAFC; border-left: 3px solid #3695F5; padding: 10px 14px;
                              font-size: 9.5pt; color: #334155; white-space: pre-line; border-radius: 4px; }
-          .claim-item { border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; page-break-inside: avoid; }
+          .claim-item { border: 1px solid #E2E8F0; border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; page-break-inside: avoid; }
           .claim-header { display: flex; justify-content: space-between; font-weight: 700; font-size: 9.5pt; margin-bottom: 4px; gap: 8px; }
           .status-tag { font-size: 8pt; font-weight: 700; padding: 2px 6px; border-radius: 3px;
-                        background: #fffbeb; color: #92400e; border: 1px solid #fde68a; white-space: nowrap; }
-          .passage-citation { background: #f8fafc; border-left: 3px solid #059669; padding: 6px 10px;
+                        background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; white-space: nowrap; }
+          .passage-citation { background: #F8FAFC; border-left: 3px solid #10B981; padding: 6px 10px;
                               font-size: 8.5pt; color: #334155; font-style: italic; margin-top: 6px; }
           table.metrics-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin: 8px 0 12px; }
-          table.metrics-table th, table.metrics-table td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
-          table.metrics-table th { background: #f1f5f9; }
+          table.metrics-table th, table.metrics-table td { border: 1px solid #CBD5E1; padding: 6px 10px; text-align: left; }
+          table.metrics-table th { background: #F1F5F9; }
           .chart-container { text-align: center; margin: 12px 0; }
-          .chart-container img { max-width: 480px; border: 1px solid #cbd5e1; border-radius: 4px; }
+          .chart-container img { max-width: 480px; border: 1px solid #CBD5E1; border-radius: 4px; }
           .reference-item { font-size: 8.5pt; color: #334155; margin-bottom: 6px; line-height: 1.4; }
-          .provenance-seal { border-top: 2px dashed #cbd5e1; padding-top: 10px; margin-top: 20px;
-                             display: flex; justify-content: space-between; gap: 10px; font-size: 7.5pt; color: #64748b; font-family: monospace; }
+          .provenance-seal { border-top: 2px dashed #CBD5E1; padding-top: 10px; margin-top: 20px;
+                             display: flex; justify-content: space-between; gap: 10px; font-size: 7.5pt; color: #64748B; font-family: monospace; }
         </style>
       </head>
       <body>
@@ -258,7 +258,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report }) => {
       <div className="card paper-view-container" style={{ padding: '40px 48px' }}>
         <div style={{ borderBottom: '2px solid var(--accent-primary-border)', paddingBottom: 18, marginBottom: 28 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-            <span className="badge badge-amber-brand">ResearchPilot Synthesis Report</span>
+            <span className="badge badge-cyan">ResearchPilot Synthesis Report</span>
             <span className="badge badge-slate">Generated {fmtDate(report.generated_at)}</span>
           </div>
           <h1 style={{ fontSize: '1.75rem', lineHeight: 1.3, marginBottom: 14, fontWeight: 800 }}>

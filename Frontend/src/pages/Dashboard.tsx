@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { AuthUser, DashboardStats, ResearchTask } from '../types';
-import { DonutChart, BarChart, LineChart } from '../components/charts';
+import { BarChart, LineChart, MonthlyInvestigationsChart } from '../components/charts';
 import {
   EmptyState, ErrorNote, Skeleton, SkeletonCard, StatCard, StatusBadge,
   fmtDate, fmtInt,
@@ -31,23 +31,16 @@ interface DashboardProps {
   onNavigateTab: (tab: string) => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  CREATED: '#FFAA24',
-  RUNNING: '#60A5FA',
-  WAITING_APPROVAL: '#FBBF24',
-  COMPLETED: '#34D399',
-  FAILED: '#F87171',
-};
-
 const QUICK_ACTIONS = [
-  { id: 'literature', icon: Globe, title: 'Discover Literature', desc: 'Search Semantic Scholar, OpenAlex & Crossref', tone: 'var(--accent-blue)' },
-  { id: 'workspace', icon: GitBranch, title: 'Research Workspace', desc: 'Follow the live agent pipeline state machine', tone: 'var(--accent-purple)' },
-  { id: 'evaluation', icon: Award, title: 'Run Evaluation', desc: 'Benchmark the pipeline on real cases', tone: 'var(--accent-emerald)' },
-  { id: 'report', icon: FileText, title: 'View Report', desc: 'Read the latest synthesis with provenance', tone: 'var(--accent-primary)' },
+  { id: 'literature', icon: Globe, title: 'Discover Literature', desc: 'Search Semantic Scholar, OpenAlex & Crossref', tone: '#3695F5' },
+  { id: 'workspace', icon: GitBranch, title: 'Research Workspace', desc: 'Follow the live agent pipeline state machine', tone: '#2563EB' },
+  { id: 'evaluation', icon: Award, title: 'Run Evaluation', desc: 'Benchmark the pipeline on real cases', tone: '#10B981' },
+  { id: 'report', icon: FileText, title: 'View Report', desc: 'Read the latest synthesis with provenance', tone: '#3695F5' },
 ];
 
 export const Dashboard: React.FC<DashboardProps> = ({
   user,
+  tasks = [],
   onSelectTask,
   onOpenNewModal,
   onNavigateTab,
@@ -72,7 +65,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     loadStats();
     const t = setInterval(loadStats, 15000); // keep counts fresh while open
     return () => clearInterval(t);
-  }, [loadStats]);
+  }, [loadStats, tasks.length]);
 
   const firstName = (user?.full_name || '').split(/\s+/)[0];
 
@@ -108,26 +101,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {/* Welcome + hero */}
       <div className="card" style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, rgba(255,170,36,0.07) 0%, rgba(17,20,23,0) 55%), var(--bg-card)',
+        background: 'linear-gradient(135deg, #F2F8FF 0%, #FFFFFF 65%)',
+        border: '1px solid var(--border-subtle)',
       }}>
         <div
           aria-hidden
           style={{
-            position: 'absolute', right: -40, top: -60, width: 260, height: 260,
-            background: `radial-gradient(circle, rgba(255,170,36,0.10) 0%, transparent 65%)`,
+            position: 'absolute', right: -40, top: -60, width: 280, height: 280,
+            background: `radial-gradient(circle, rgba(54,149,245,0.08) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-              <span className="badge badge-amber-brand"><ShieldCheck size={12} /> Evidence-First Pipeline</span>
+              <span className="badge badge-cyan"><ShieldCheck size={12} /> Evidence-First Pipeline</span>
               <span className="badge badge-slate">11-stage agent FSM</span>
             </div>
-            <h2 style={{ fontSize: '1.65rem', fontWeight: 800, marginBottom: 8 }}>
+            <h2 style={{ fontSize: '1.65rem', fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)' }}>
               {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
             </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: 640, lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 640, lineHeight: 1.6 }}>
               Retrieve literature, decompose and verify claims against sources, run sandboxed experiments,
               and generate provenance-sealed research reports — all from one workspace.
             </p>
@@ -144,7 +138,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           const Icon = qa.icon;
           return (
             <button key={qa.id} className="quick-action" onClick={() => onNavigateTab(qa.id)}>
-              <span className="quick-action-icon" style={{ background: `${qa.tone}1f`, border: `1px solid ${qa.tone}55` }}>
+              <span className="quick-action-icon" style={{ background: `${qa.tone}14`, border: `1px solid ${qa.tone}35` }}>
                 <Icon size={18} color={qa.tone} />
               </span>
               <span style={{ minWidth: 0 }}>
@@ -163,7 +157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           value={fmtInt(s.tasks_total)}
           hint={`${fmtInt(s.runs_total)} runs · ${fmtInt(s.runs_active)} active`}
           icon={<Layers size={17} />}
-          tone="amber"
+          tone="blue"
         />
         <StatCard
           label="Verified Evidence"
@@ -181,7 +175,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           value={fmtInt(s.experiments_total)}
           hint={s.experiments_total > 0 ? `${fmtInt(s.experiments_completed)} completed in sandbox` : 'No experiments generated yet'}
           icon={<FlaskConical size={17} />}
-          tone="purple"
+          tone="blue"
         />
         <StatCard
           label="Reports Generated"
@@ -222,35 +216,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
 
-        {/* Task status distribution */}
+        {/* Monthly investigations vertical bar chart — real data from database */}
         <div className="card chart-card">
-          <div className="card-header" style={{ marginBottom: 12 }}>
+          <div className="card-header" style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h3 className="section-heading">Task Status</h3>
-              <p className="section-sub">Distribution of {fmtInt(s.tasks_total)} investigations by current status</p>
+              <h3 className="section-heading">Monthly Investigations</h3>
+              <p className="section-sub">Research activity across the year</p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#3695F5' }} />
+                Monthly
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: '#2563EB' }} />
+                Current Month
+              </span>
             </div>
           </div>
-          {s.task_status_distribution.length > 0 ? (
-            <DonutChart
-              data={s.task_status_distribution.map((d) => ({
-                label: d.status.replace(/_/g, ' '),
-                value: d.count,
-                color: STATUS_COLORS[d.status.toUpperCase()] || '#4A5058',
-              }))}
-              centerLabel="investigations"
-            />
-          ) : (
-            <EmptyState
-              icon={<Layers size={20} />}
-              title="No tasks recorded"
-              description="Create your first investigation to see its lifecycle status here."
-              action={
-                <button className="btn btn-secondary" onClick={onOpenNewModal}>
-                  <Plus size={14} /> New Investigation
-                </button>
-              }
-            />
-          )}
+          <MonthlyInvestigationsChart
+            data={s.monthly_investigations || []}
+            year={s.investigations_year || 2026}
+            height={180}
+          />
         </div>
       </div>
 

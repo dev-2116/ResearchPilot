@@ -101,9 +101,9 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
             )}
           </div>
         ) : (
-          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'var(--bg-inset)', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-md)', padding: '13px 15px' }}>
-            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-              This task has not been executed yet. Starting a run launches the 10-stage agent pipeline.
+          <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'var(--bg-card-subtle)', border: '1px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', padding: '14px 18px' }}>
+            <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+              This task has not been executed yet. Starting a run launches the 11-stage evidence-verified agent pipeline.
             </span>
             <button className="btn btn-primary" onClick={() => onStartRun(task)} style={{ flexShrink: 0 }}>
               <Play size={14} /> Start Run
@@ -114,17 +114,17 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
 
       {/* Gated approval banner */}
       {run?.status === 'WAITING_APPROVAL' && (
-        <div className="card" style={{ borderColor: 'var(--accent-amber-border)', background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(17,20,23,0))' }}>
+        <div className="card" style={{ borderColor: 'var(--accent-amber-border)', background: 'var(--accent-amber-light)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-amber-light)', border: '1px solid var(--accent-amber-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FFFFFF', border: '1px solid var(--accent-amber-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <AlertTriangle size={19} color="var(--accent-amber)" />
               </div>
               <div>
                 <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--accent-amber)', marginBottom: 2 }}>
                   Human-in-the-loop checkpoint
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   Hypothesis and experiment code are ready. Review them in the Experiment Lab before authorizing sandbox execution.
                 </p>
               </div>

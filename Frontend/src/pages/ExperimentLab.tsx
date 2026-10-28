@@ -62,7 +62,7 @@ export const ExperimentLab: React.FC<ExperimentLabProps> = ({ experiment, onReex
   return (
     <div className="page-view">
       {/* Header */}
-      <div className="card">
+      <div className="card" style={{ border: '1px solid var(--accent-primary-border)', background: 'linear-gradient(135deg, #F2F8FF 0%, #FFFFFF 70%)' }}>
         <SectionHeader
           icon={<FlaskConical size={17} />}
           title="Empirical Sandbox & Reproducible Experiment Lab"

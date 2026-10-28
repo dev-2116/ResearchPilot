@@ -110,11 +110,11 @@ export const MidSemDemo: React.FC<MidSemDemoProps> = ({
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(96,165,250,0.05) 55%, rgba(17,20,23,0) 100%), var(--bg-card)',
-          borderColor: 'var(--accent-emerald-border)',
+          background: 'linear-gradient(135deg, #F2F8FF 0%, #FFFFFF 70%)',
+          borderColor: 'var(--border-subtle)',
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: '0 4px 20px -2px rgba(16, 185, 129, 0.08)',
+          boxShadow: 'var(--shadow-xs)',
           padding: '24px 28px',
         }}
       >

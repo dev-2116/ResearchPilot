@@ -159,8 +159,8 @@ print("Experiment completed successfully.")
         start_time = datetime.utcnow().isoformat() + "Z"
         start_t = time.time()
         
-        # Save Python script
-        script_path = run_artifacts_dir / f"experiment_{exp_id}.py"
+        # Save Python script (using .sandbox_py avoids triggering uvicorn's .py reload watcher)
+        script_path = run_artifacts_dir / f"experiment_{exp_id}.sandbox_py"
         script_path.write_text(code, encoding="utf-8")
         code_hash = hashlib.sha256(code.encode("utf-8")).hexdigest()
 

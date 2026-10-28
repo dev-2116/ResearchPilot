@@ -10,6 +10,9 @@ import {
   RefreshCw,
   Search,
   Bookmark,
+  FileText,
+  Quote,
+  Calendar,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { AcademicPaper, LiteratureSourceInfo } from '../types';
@@ -140,49 +143,62 @@ export const LiteratureDiscovery: React.FC = () => {
 
   return (
     <div className="page-view">
-      {/* Search header */}
-      <div className="card">
-        <SectionHeader
-          icon={<Globe size={17} />}
-          title="Literature Discovery"
-          subtitle="Live search across Semantic Scholar, OpenAlex and Crossref — results are real API responses"
-        />
+      {/* Prominent Search Hero Card */}
+      <div className="card" style={{ padding: '28px 28px 22px' }}>
+        <div style={{ maxWidth: 740, marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span className="badge badge-cyan"><Globe size={12} /> Scholarly Index</span>
+            <span className="badge badge-slate">Real API Retrieval</span>
+          </div>
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6 }}>
+            Academic Literature Discovery
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.5 }}>
+            Search peer-reviewed preprints and publications across Semantic Scholar, OpenAlex, and Crossref with verified citations and provenance metadata.
+          </p>
+        </div>
 
+        {/* Wide rounded search input */}
         <form
           onSubmit={(e) => { e.preventDefault(); runSearch(queryInput); }}
-          style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}
+          className="search-bar-prominent"
         >
-          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
-            <Search size={15} color="var(--text-light)" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              className="form-input"
-              style={{ paddingLeft: 36 }}
-              placeholder="Search papers, e.g. retrieval augmented generation…"
-              value={queryInput}
-              onChange={(e) => setQueryInput(e.target.value)}
-              aria-label="Literature search query"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={isLoading}>
+          <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          <input
+            className="search-input-pill"
+            placeholder="Search papers by keyword, concept, or author (e.g. retrieval augmented generation)…"
+            value={queryInput}
+            onChange={(e) => setQueryInput(e.target.value)}
+            aria-label="Literature search query"
+          />
+          <button type="submit" className="btn btn-primary search-btn-pill" disabled={isLoading}>
             {isLoading ? <RefreshCw size={14} className="spin" /> : <Search size={14} />}
-            <span>{isLoading ? 'Searching…' : 'Search'}</span>
+            <span>{isLoading ? 'Searching…' : 'Search Literature'}</span>
           </button>
         </form>
 
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 11 }}>
+        {/* Preset Topic Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontWeight: 600 }}>Suggested:</span>
           {PRESET_TOPICS.map((t) => (
-            <button key={t} type="button" className={`seg-btn ${queryInput === t ? 'active' : ''}`} onClick={() => { setQueryInput(t); runSearch(t); }}>
+            <button
+              key={t}
+              type="button"
+              className={`seg-btn ${queryInput === t ? 'active' : ''}`}
+              style={{ fontSize: '0.74rem', padding: '4px 12px' }}
+              onClick={() => { setQueryInput(t); runSearch(t); }}
+            >
               {t}
             </button>
           ))}
         </div>
 
-        {/* Connected sources — real status from backend */}
+        {/* Connected scholarly sources */}
         {sources.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 13, paddingTop: 13, borderTop: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
             {sources.map((s) => (
               <span key={s.id} className="badge badge-slate" title={s.description}>
-                <Globe size={11} color="var(--accent-blue)" /> {s.name} · {s.status}
+                <Globe size={11} color="var(--accent-primary)" /> {s.name} · {s.status}
               </span>
             ))}
           </div>
@@ -195,22 +211,22 @@ export const LiteratureDiscovery: React.FC = () => {
       {!hasSearched && !isLoading && (
         <div className="card">
           <EmptyState
-            icon={<BookOpen size={20} />}
+            icon={<BookOpen size={22} />}
             title="Search the academic literature"
-            description="Enter a query above or pick a preset topic. Results come live from the connected scholarly APIs with real metadata — titles, authors, venues, citation counts and abstracts."
+            description="Enter a query above or choose a suggested research topic. Real papers are retrieved live from connected scholarly databases with titles, authors, venues, citation counts, and abstracts."
           />
         </div>
       )}
 
       {/* Loading skeletons */}
       {isLoading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[0, 1, 2].map((i) => (
-            <div key={i} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <Skeleton h={13} w="65%" />
-              <Skeleton h={10} w="40%" />
-              <Skeleton h={10} w="92%" />
-              <Skeleton h={10} w="85%" />
+            <div key={i} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <Skeleton h={15} w="65%" />
+              <Skeleton h={11} w="40%" />
+              <Skeleton h={11} w="90%" />
+              <Skeleton h={11} w="82%" />
             </div>
           ))}
         </div>
@@ -219,36 +235,46 @@ export const LiteratureDiscovery: React.FC = () => {
       {/* Results */}
       {hasSearched && !isLoading && papers.length > 0 && (
         <>
-          <div className="card" ref={resultTopRef}>
+          {/* Controls Bar */}
+          <div className="card" ref={resultTopRef} style={{ padding: '16px 20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
-                <span className="badge badge-emerald">{fmtInt(totalFound)} results</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <span className="badge badge-cyan" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
+                  {fmtInt(totalFound)} results found
+                </span>
                 {Object.entries(sourceCounts).map(([src, n]) => (
                   <button
                     key={src}
                     className={`seg-btn ${sourceFilter === src ? 'active' : ''}`}
-                    style={{ padding: '3px 10px', fontSize: '0.72rem' }}
+                    style={{ padding: '4px 12px', fontSize: '0.74rem' }}
                     onClick={() => setSourceFilter(sourceFilter === src ? 'all' : src)}
-                    title={`Show only ${src} results`}
+                    title={`Filter by ${src}`}
                   >
                     {src} ({n})
                   </button>
                 ))}
                 {sourceFilter !== 'all' && (
-                  <button className="seg-btn" style={{ padding: '3px 10px', fontSize: '0.72rem' }} onClick={() => setSourceFilter('all')}>
+                  <button className="seg-btn" style={{ padding: '4px 10px', fontSize: '0.72rem' }} onClick={() => setSourceFilter('all')}>
                     Clear filter ×
                   </button>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-                <label className="form-label" htmlFor="lit-sort" style={{ marginBottom: 0 }}>Sort</label>
-                <select id="lit-sort" className="form-select" style={{ width: 140, paddingTop: 6, paddingBottom: 6 }} value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)}>
-                  <option value="citations">Citations</option>
-                  <option value="year">Publication year</option>
-                  <option value="relevance">API relevance</option>
+
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <label className="form-label" htmlFor="lit-sort" style={{ marginBottom: 0, fontSize: '0.72rem' }}>Sort by</label>
+                <select
+                  id="lit-sort"
+                  className="form-select"
+                  style={{ width: 150, paddingTop: 6, paddingBottom: 6, fontSize: '0.8rem' }}
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortKey)}
+                >
+                  <option value="citations">Most Citations</option>
+                  <option value="year">Latest Year</option>
+                  <option value="relevance">API Relevance</option>
                 </select>
                 {notYetIngested.length > 0 && (
-                  <button className="btn btn-secondary" onClick={() => handleImport(notYetIngested)} disabled={isBulkImporting}>
+                  <button className="btn btn-secondary" onClick={() => handleImport(notYetIngested)} disabled={isBulkImporting} style={{ padding: '6px 14px', fontSize: '0.78rem' }}>
                     <Import size={13} /> Import all ({notYetIngested.length})
                   </button>
                 )}
@@ -264,35 +290,68 @@ export const LiteratureDiscovery: React.FC = () => {
           {visiblePapers.length === 0 ? (
             <div className="card">
               <EmptyState
-                title="No results from this source"
-                description="Try clearing the source filter or searching a broader query."
+                title="No results for this filter"
+                description="Try selecting 'All' or searching for a broader academic topic."
               />
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {visiblePapers.map((p) => {
                 const key = p.identifier || p.title;
                 const isOpen = expanded[p.id];
                 return (
-                  <div key={p.id} className="card" style={{ padding: 17 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 7 }}>
+                  <div key={p.id} className="card" style={{ padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 18, alignItems: 'flex-start' }}>
+                      {/* Left thumbnail indicator */}
+                      <div
+                        style={{
+                          width: 44, height: 44, borderRadius: 'var(--radius-md)',
+                          background: 'var(--bg-soft-blue)', border: '1px solid var(--accent-primary-border)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--accent-primary)', flexShrink: 0, marginTop: 2,
+                        }}
+                        title={p.source}
+                      >
+                        <FileText size={20} />
+                      </div>
+
+                      {/* Main paper information */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 8, alignItems: 'center' }}>
                           <span className="badge badge-cyan">{p.source}</span>
-                          {p.publication_year ? <span className="badge badge-slate">{p.publication_year}</span> : <span className="badge badge-slate">Year N/A</span>}
-                          <span className="badge badge-slate">{fmtInt(p.citation_count)} citations</span>
-                          {p.venue && <span className="badge badge-slate" style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.venue}>{p.venue}</span>}
+                          {p.publication_year ? (
+                            <span className="badge badge-slate"><Calendar size={11} /> {p.publication_year}</span>
+                          ) : (
+                            <span className="badge badge-slate">Year N/A</span>
+                          )}
+                          <span className="badge badge-slate"><Quote size={11} /> {fmtInt(p.citation_count)} citations</span>
+                          {p.venue && (
+                            <span className="badge badge-slate" style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis' }} title={p.venue}>
+                              {p.venue}
+                            </span>
+                          )}
                         </div>
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.4, marginBottom: 4 }}>{p.title}</h3>
+
+                        <h3 style={{ fontSize: '1.02rem', fontWeight: 700, lineHeight: 1.4, marginBottom: 5, color: 'var(--text-primary)' }}>
+                          {p.url ? (
+                            <a href={p.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit' }}>
+                              {p.title}
+                            </a>
+                          ) : (
+                            p.title
+                          )}
+                        </h3>
+
                         {p.authors && (
-                          <p style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.authors}>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.authors}>
                             {p.authors}
                           </p>
                         )}
+
                         {p.abstract ? (
                           <p
                             style={{
-                              fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 4,
+                              fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 6,
                               display: isOpen ? 'block' : '-webkit-box',
                               WebkitLineClamp: isOpen ? undefined : 2,
                               WebkitBoxOrient: 'vertical',
@@ -302,41 +361,53 @@ export const LiteratureDiscovery: React.FC = () => {
                             {p.abstract}
                           </p>
                         ) : (
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontStyle: 'italic', marginTop: 4 }}>
+                          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 4 }}>
                             Abstract not provided by {p.source} for this record.
                           </p>
                         )}
+
                         {p.abstract && p.abstract.length > 180 && (
-                          <button className="btn btn-ghost" style={{ fontSize: '0.72rem', padding: '3px 6px', marginTop: 4 }} onClick={() => setExpanded((m) => ({ ...m, [p.id]: !m[p.id] }))}>
+                          <button
+                            className="btn btn-ghost"
+                            style={{ fontSize: '0.74rem', padding: '4px 8px', marginTop: 6, color: 'var(--accent-primary)', fontWeight: 600 }}
+                            onClick={() => setExpanded((m) => ({ ...m, [p.id]: !m[p.id] }))}
+                          >
                             {isOpen ? 'Show less' : 'Show full abstract'}
                           </button>
                         )}
                       </div>
 
+                      {/* Right action controls */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, alignItems: 'flex-end' }}>
                         {p.url && (
-                          <a className="btn btn-secondary" href={p.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.74rem', textDecoration: 'none', padding: '6px 11px' }}>
+                          <a
+                            className="btn btn-secondary"
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: '0.76rem', textDecoration: 'none', padding: '6px 12px' }}
+                          >
                             <ExternalLink size={12} /> Source
                           </a>
                         )}
                         <button
                           className={`btn ${savedIds[key] ? 'btn-success' : 'btn-secondary'}`}
-                          style={{ fontSize: '0.74rem', padding: '6px 11px' }}
+                          style={{ fontSize: '0.76rem', padding: '6px 12px' }}
                           onClick={() => handleSave(p)}
                           disabled={!!savedIds[key]}
                           title={savedIds[key] ? 'Already in your library' : 'Save to your library'}
                         >
-                          {savedIds[key] ? <Check size={12} /> : <Bookmark size={12} />}
+                          {savedIds[key] ? <Check size={13} /> : <Bookmark size={13} />}
                           <span>{savedIds[key] ? 'Saved' : 'Save'}</span>
                         </button>
                         <button
                           className="btn btn-secondary"
-                          style={{ fontSize: '0.74rem', padding: '6px 11px' }}
+                          style={{ fontSize: '0.76rem', padding: '6px 12px' }}
                           onClick={() => handleImport([p])}
                           disabled={!!ingestedIds[p.id] || isBulkImporting}
                           title="Add to the retrieval corpus used for claim verification"
                         >
-                          {ingestedIds[p.id] ? <Check size={12} color="var(--accent-emerald)" /> : <Database size={12} />}
+                          {ingestedIds[p.id] ? <Check size={13} color="var(--accent-emerald)" /> : <Database size={13} />}
                           <span>{ingestedIds[p.id] ? 'In corpus' : 'To corpus'}</span>
                         </button>
                       </div>
@@ -347,7 +418,7 @@ export const LiteratureDiscovery: React.FC = () => {
             </div>
           )}
 
-          <p className="chart-tooltip-note" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <p className="chart-tooltip-note" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <Library size={12} /> “Save” stores a paper in your personal library; “To corpus” ingests it into the retrieval index used by verification runs.
           </p>
         </>
@@ -357,9 +428,9 @@ export const LiteratureDiscovery: React.FC = () => {
       {hasSearched && !isLoading && !error && papers.length === 0 && (
         <div className="card">
           <EmptyState
-            icon={<Search size={20} />}
+            icon={<Search size={22} />}
             title={`No papers found for “${activeQuery}”`}
-            description="The academic APIs returned no matches. Try different keywords or a broader topic."
+            description="The academic APIs returned no matches. Try different keywords or select a suggested topic above."
           />
         </div>
       )}

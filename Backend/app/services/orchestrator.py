@@ -212,121 +212,126 @@ class AgentOrchestrator:
             raise e
 
     async def _run_execution_steps(self, run_id: str, task_id: str, question: str, exp_id: str, code: str, variables: Dict, verified_claims: List[Dict]):
-        # Step 7: EXECUTE
-        step_start = time.time()
-        DB.update_run(run_id, status="RUNNING", current_step="EXECUTE", progress=0.70)
-        await asyncio.sleep(0.8)
-        
-        exec_res = experiment_sandbox.execute_in_sandbox(
-            code=code, run_id=run_id, exp_id=exp_id, variables=variables
-        )
-        
-        DB.save_experiment(
-            exp_id=exp_id, run_id=run_id, hypothesis=exec_res["manifest"]["parameters"].get("hypothesis") or "Not recorded",
-            variables=variables, baseline="Standard LLM", proposed="ResearchPilot",
-            code=code, status=exec_res["status"], stdout=exec_res["stdout"],
-            stderr=exec_res["stderr"], exit_code=exec_res["exit_code"],
-            duration_ms=exec_res["duration_ms"], manifest=exec_res["manifest"],
-            chart_url=exec_res["chart_url"]
-        )
-
-        for m in exec_res.get("metrics", []):
-            DB.add_metric(
-                exp_id=exp_id, name=m["name"], value=m["value"],
-                unit=m.get("unit"), baseline_value=m.get("baseline_value"),
-                delta_percentage=m.get("delta_percentage")
+        try:
+            # Step 7: EXECUTE
+            step_start = time.time()
+            DB.update_run(run_id, status="RUNNING", current_step="EXECUTE", progress=0.70)
+            await asyncio.sleep(0.5)
+            
+            exec_res = await asyncio.to_thread(
+                experiment_sandbox.execute_in_sandbox,
+                code=code, run_id=run_id, exp_id=exp_id, variables=variables
+            )
+            
+            DB.save_experiment(
+                exp_id=exp_id, run_id=run_id, hypothesis=exec_res["manifest"]["parameters"].get("hypothesis") or "Not recorded",
+                variables=variables, baseline="Standard LLM", proposed="ResearchPilot",
+                code=code, status=exec_res["status"], stdout=exec_res["stdout"],
+                stderr=exec_res["stderr"], exit_code=exec_res["exit_code"],
+                duration_ms=exec_res["duration_ms"], manifest=exec_res["manifest"],
+                chart_url=exec_res["chart_url"]
             )
 
-        # Record generated artifacts
-        if exec_res.get("chart_url"):
-            DB.save_artifact(
-                artifact_id=f"art_chart_{exp_id}", run_id=run_id, name="experiment_results.png",
-                path=f"artifacts/{run_id}/experiment_results.png", art_type="chart",
-                file_hash=exec_res["manifest"]["artifact_hashes"].get("plot", "hash_na"),
-                file_size=os.path.getsize(ARTIFACTS_DIR / run_id / "experiment_results.png")
-                if (ARTIFACTS_DIR / run_id / "experiment_results.png").exists() else 0
+            for m in exec_res.get("metrics", []):
+                DB.add_metric(
+                    exp_id=exp_id, name=m["name"], value=m["value"],
+                    unit=m.get("unit"), baseline_value=m.get("baseline_value"),
+                    delta_percentage=m.get("delta_percentage")
+                )
+
+            # Record generated artifacts
+            if exec_res.get("chart_url"):
+                DB.save_artifact(
+                    artifact_id=f"art_chart_{exp_id}", run_id=run_id, name="experiment_results.png",
+                    path=f"artifacts/{run_id}/experiment_results.png", art_type="chart",
+                    file_hash=exec_res["manifest"]["artifact_hashes"].get("plot", "hash_na"),
+                    file_size=os.path.getsize(ARTIFACTS_DIR / run_id / "experiment_results.png")
+                    if (ARTIFACTS_DIR / run_id / "experiment_results.png").exists() else 0
+                )
+
+            step_lat = int((time.time() - step_start) * 1000)
+            DB.add_step(
+                run_id=run_id, step_type="EXECUTE", step_index=7,
+                input_data={"sandbox_timeout_sec": 15, "environment": "subprocess_restricted_fs"},
+                output_data={"status": exec_res["status"], "duration_ms": exec_res["duration_ms"], "exit_code": exec_res["exit_code"]},
+                status="SUCCESS", latency_ms=step_lat, token_usage=0
             )
 
-        step_lat = int((time.time() - step_start) * 1000)
-        DB.add_step(
-            run_id=run_id, step_type="EXECUTE", step_index=7,
-            input_data={"sandbox_timeout_sec": 15, "environment": "subprocess_restricted_fs"},
-            output_data={"status": exec_res["status"], "duration_ms": exec_res["duration_ms"], "exit_code": exec_res["exit_code"]},
-            status="SUCCESS", latency_ms=step_lat, token_usage=0
-        )
+            # Step 8: EVALUATE
+            step_start = time.time()
+            DB.update_run(run_id, current_step="EVALUATE", progress=0.80)
+            await asyncio.sleep(0.5)
+            
+            seed_used = exec_res["manifest"]["parameters"].get("random_seed", "unspecified")
+            eval_output = {
+                "metrics_evaluated": len(exec_res.get("metrics", [])),
+                "random_seed": seed_used,
+                "reproducibility_note": "Executed once in the deterministic sandbox with a fixed seed; no independent re-run was performed.",
+                "metrics_summary": {m["name"]: m["value"] for m in exec_res.get("metrics", [])}
+            }
+            step_lat = int((time.time() - step_start) * 1000)
+            DB.add_step(
+                run_id=run_id, step_type="EVALUATE", step_index=8,
+                input_data={"experiment_id": exp_id},
+                output_data=eval_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
+            )
 
-        # Step 8: EVALUATE
-        step_start = time.time()
-        DB.update_run(run_id, current_step="EVALUATE", progress=0.80)
-        await asyncio.sleep(0.6)
-        
-        seed_used = exec_res["manifest"]["parameters"].get("random_seed", "unspecified")
-        eval_output = {
-            "metrics_evaluated": len(exec_res.get("metrics", [])),
-            "random_seed": seed_used,
-            "reproducibility_note": "Executed once in the deterministic sandbox with a fixed seed; no independent re-run was performed.",
-            "metrics_summary": {m["name"]: m["value"] for m in exec_res.get("metrics", [])}
-        }
-        step_lat = int((time.time() - step_start) * 1000)
-        DB.add_step(
-            run_id=run_id, step_type="EVALUATE", step_index=8,
-            input_data={"experiment_id": exp_id},
-            output_data=eval_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
-        )
+            # Step 9: REVIEW
+            step_start = time.time()
+            DB.update_run(run_id, current_step="REVIEW", progress=0.88)
+            await asyncio.sleep(0.5)
+            
+            status_counts = {"SUPPORTED": 0, "REFUTED": 0, "INSUFFICIENT_EVIDENCE": 0}
+            for vc in verified_claims:
+                status_counts[vc["verification_status"]] = status_counts.get(vc["verification_status"], 0) + 1
+            review_output = {
+                "claims_supported": status_counts["SUPPORTED"],
+                "claims_refuted": status_counts["REFUTED"],
+                "claims_insufficient_evidence": status_counts["INSUFFICIENT_EVIDENCE"],
+                "experiment_status": exec_res["status"],
+                "conclusion_action": "PROCEED_TO_FINAL_REPORT" if exec_res["status"] == "COMPLETED" else "REPORT_WITH_EXPERIMENT_WARNINGS"
+            }
+            step_lat = int((time.time() - step_start) * 1000)
+            DB.add_step(
+                run_id=run_id, step_type="REVIEW", step_index=9,
+                input_data={"claims_total": len(verified_claims), "experiment_status": exec_res["status"]},
+                output_data=review_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
+            )
 
-        # Step 9: REVIEW
-        step_start = time.time()
-        DB.update_run(run_id, current_step="REVIEW", progress=0.88)
-        await asyncio.sleep(0.5)
-        
-        status_counts = {"SUPPORTED": 0, "REFUTED": 0, "INSUFFICIENT_EVIDENCE": 0}
-        for vc in verified_claims:
-            status_counts[vc["verification_status"]] = status_counts.get(vc["verification_status"], 0) + 1
-        review_output = {
-            "claims_supported": status_counts["SUPPORTED"],
-            "claims_refuted": status_counts["REFUTED"],
-            "claims_insufficient_evidence": status_counts["INSUFFICIENT_EVIDENCE"],
-            "experiment_status": exec_res["status"],
-            "conclusion_action": "PROCEED_TO_FINAL_REPORT" if exec_res["status"] == "COMPLETED" else "REPORT_WITH_EXPERIMENT_WARNINGS"
-        }
-        step_lat = int((time.time() - step_start) * 1000)
-        DB.add_step(
-            run_id=run_id, step_type="REVIEW", step_index=9,
-            input_data={"claims_total": len(verified_claims), "experiment_status": exec_res["status"]},
-            output_data=review_output, status="SUCCESS", latency_ms=step_lat, token_usage=0
-        )
+            # Step 10: REPORT
+            step_start = time.time()
+            DB.update_run(run_id, current_step="REPORT", progress=0.95)
+            await asyncio.sleep(0.5)
+            
+            exp_full = DB.get_run_experiment(run_id)
+            report_data = report_generator.generate_report(
+                task_id=task_id, question=question,
+                claims=verified_claims, experiment=exp_full,
+                steps=[]
+            )
+            
+            DB.save_report(
+                run_id=run_id, question=question, title=report_data["title"],
+                summary=report_data["executive_summary"], methodology=report_data["methodology"],
+                evidence=report_data["evidence_synthesis"], experiments=report_data["experiment_results"],
+                limitations=report_data["limitations"], citations=report_data["citations"],
+                provenance_hash=report_data["provenance_hash"]
+            )
 
-        # Step 10: REPORT
-        step_start = time.time()
-        DB.update_run(run_id, current_step="REPORT", progress=0.95)
-        await asyncio.sleep(0.6)
-        
-        exp_full = DB.get_run_experiment(run_id)
-        report_data = report_generator.generate_report(
-            task_id=task_id, question=question,
-            claims=verified_claims, experiment=exp_full,
-            steps=[]
-        )
-        
-        DB.save_report(
-            run_id=run_id, question=question, title=report_data["title"],
-            summary=report_data["executive_summary"], methodology=report_data["methodology"],
-            evidence=report_data["evidence_synthesis"], experiments=report_data["experiment_results"],
-            limitations=report_data["limitations"], citations=report_data["citations"],
-            provenance_hash=report_data["provenance_hash"]
-        )
+            step_lat = int((time.time() - step_start) * 1000)
+            DB.add_step(
+                run_id=run_id, step_type="REPORT", step_index=10,
+                input_data={"task_id": task_id, "provenance_tracking": True},
+                output_data={"title": report_data["title"], "provenance_hash": report_data["provenance_hash"]},
+                status="SUCCESS", latency_ms=step_lat, token_usage=0
+            )
 
-        step_lat = int((time.time() - step_start) * 1000)
-        DB.add_step(
-            run_id=run_id, step_type="REPORT", step_index=10,
-            input_data={"task_id": task_id, "provenance_tracking": True},
-            output_data={"title": report_data["title"], "provenance_hash": report_data["provenance_hash"]},
-            status="SUCCESS", latency_ms=step_lat, token_usage=0
-        )
-
-        # COMPLETE
-        ended_at = datetime.utcnow().isoformat() + "Z"
-        DB.update_run(run_id, status="COMPLETED", current_step="COMPLETE", progress=1.0, ended_at=ended_at)
+            # COMPLETE
+            ended_at = datetime.utcnow().isoformat() + "Z"
+            DB.update_run(run_id, status="COMPLETED", current_step="COMPLETE", progress=1.0, ended_at=ended_at)
+        except Exception as e:
+            DB.update_run(run_id, status="FAILED", latest_error=str(e))
+            raise e
 
     def approve_gated_run(self, run_id: str):
         run = DB.get_run(run_id)

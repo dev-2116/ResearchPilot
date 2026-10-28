@@ -1,18 +1,19 @@
 import React, { useMemo, useState } from 'react';
+import { MonthlyInvestigation } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Hand-rolled SVG charts — zero extra dependencies.
-   Every chart renders ONLY the real values passed in by its caller; when the
-   data is empty or insufficient, callers render an honest empty state instead.
+   Academic Charts — Light Blue Palette (zero extra dependencies).
+   Renders ONLY real recorded data; empty states when data is insufficient.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const AMBER = '#FFAA24';
-const EMERALD = '#34D399';
-const ROSE = '#F87171';
-const PURPLE = '#A78BFA';
-const BLUE = '#60A5FA';
-const GREY = '#4A5058';
-const TEXT_MUTED = '#A7ADB5';
+const BLUE = '#3695F5';
+const CHARCOAL = '#252A31';
+const SLATE = '#596579';
+const EMERALD = '#10B981';
+const ROSE = '#DC2626';
+const AMBER = '#D97706';
+const GREY = '#CBD5E1';
+const TEXT_MUTED = '#8A95A5';
 
 export interface Datum {
   label: string;
@@ -39,11 +40,12 @@ export const DonutChart: React.FC<{
   const circumference = 2 * Math.PI * r;
 
   let offset = 0;
+  const palette = [BLUE, '#2563EB', '#60A5FA', CHARCOAL, EMERALD, SLATE];
   const segments = data.map((d, i) => {
     const frac = d.value / total;
     const seg = {
       key: i,
-      color: d.color || [AMBER, EMERALD, PURPLE, BLUE, ROSE, GREY][i % 6],
+      color: d.color || palette[i % palette.length],
       dash: frac * circumference,
       offset,
       pct: Math.round(frac * 100),
@@ -57,10 +59,10 @@ export const DonutChart: React.FC<{
   const active = hovered !== null ? segments[hovered] : null;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
       <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
         <svg width={size} height={size} role="img" aria-label={centerLabel || 'Distribution chart'}>
-          <circle cx={c} cy={c} r={r} fill="none" stroke="var(--bg-inset)" strokeWidth={thickness} />
+          <circle cx={c} cy={c} r={r} fill="none" stroke="#EBF2FA" strokeWidth={thickness} />
           {segments.map((s) => (
             <circle
               key={s.key}
@@ -88,26 +90,26 @@ export const DonutChart: React.FC<{
             alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', textAlign: 'center',
           }}
         >
-          <span style={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
+          <span style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--text-primary)' }}>
             {active ? `${active.pct}%` : (centerValue ?? String(total))}
           </span>
-          <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', maxWidth: 90, lineHeight: 1.3 }}>
+          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', maxWidth: 90, lineHeight: 1.3 }}>
             {active ? active.label : (centerLabel || 'total')}
           </span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 130 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minWidth: 140 }}>
         {segments.map((s) => (
           <div
             key={s.key}
             onMouseEnter={() => setHovered(s.key)}
             onMouseLeave={() => setHovered(null)}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.76rem', cursor: 'default', opacity: hovered === null || hovered === s.key ? 1 : 0.55, transition: 'opacity 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', cursor: 'default', opacity: hovered === null || hovered === s.key ? 1 : 0.55, transition: 'opacity 0.15s' }}
           >
-            <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
             <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
-            <span className="mono" style={{ color: 'var(--text-muted)' }}>{s.value} · {s.pct}%</span>
+            <span className="mono" style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>{s.value} ({s.pct}%)</span>
           </div>
         ))}
       </div>
@@ -130,8 +132,8 @@ export const BarChart: React.FC<{
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: Math.min(18, 120 / Math.max(data.length, 1)), height, padding: '4px 2px 0' }}>
       {data.map((d, i) => {
-        const h = Math.max(3, (d.value / max) * (height - 34));
-        const color = d.color || AMBER;
+        const h = Math.max(4, (d.value / max) * (height - 36));
+        const color = d.color || BLUE;
         return (
           <div
             key={i}
@@ -142,7 +144,7 @@ export const BarChart: React.FC<{
             <span
               className="mono"
               style={{
-                fontSize: '0.7rem', fontWeight: 600,
+                fontSize: '0.72rem', fontWeight: 600,
                 color: hovered === i ? color : 'var(--text-muted)',
                 opacity: hovered === null || hovered === i ? 1 : 0.5,
               }}
@@ -151,16 +153,16 @@ export const BarChart: React.FC<{
             </span>
             <div
               style={{
-                width: '100%', maxWidth: 44, height: h, borderRadius: '5px 5px 2px 2px',
-                background: `linear-gradient(180deg, ${color}, ${color}55)`,
-                opacity: hovered === null || hovered === i ? 1 : 0.5,
+                width: '100%', maxWidth: 42, height: h, borderRadius: '5px 5px 2px 2px',
+                background: color,
+                opacity: hovered === null || hovered === i ? 1 : 0.45,
                 transition: 'opacity 0.15s, height 0.3s ease',
               }}
               title={`${d.label}: ${d.value}${unit}`}
             />
             <span
               style={{
-                fontSize: '0.64rem', color: hovered === i ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontSize: '0.66rem', color: hovered === i ? 'var(--text-primary)' : 'var(--text-muted)',
                 textAlign: 'center', lineHeight: 1.25, maxWidth: '100%', overflow: 'hidden',
                 textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}
@@ -178,7 +180,7 @@ export const BarChart: React.FC<{
 /* ── Line chart: genuine time series with real dates ──────────────────────── */
 
 export interface TimePoint {
-  date: string; // YYYY-MM-DD (real date from records)
+  date: string; // YYYY-MM-DD
   value: number;
 }
 
@@ -188,7 +190,7 @@ export const LineChart: React.FC<{
   color?: string;
   fillFrom?: string;
   unit?: string;
-}> = ({ points, height = 180, color = AMBER, fillFrom = 'rgba(255,170,36,0.20)', unit = '' }) => {
+}> = ({ points, height = 180, color = BLUE, fillFrom = 'rgba(54, 149, 245, 0.18)', unit = '' }) => {
   const W = 560;
   const H = height;
   const PADL = 30;
@@ -212,12 +214,14 @@ export const LineChart: React.FC<{
     return { pathD: d, areaD: area, coords: coordsArr, maxY: maxV };
   }, [points, H]);
 
-  if (points.length < 2) return null; // honest: no trend line from a single point
+  if (points.length < 2) return null;
 
   const fmtLabel = (d: string) => {
     const dt = new Date(d + 'T00:00:00');
     return Number.isNaN(dt.getTime()) ? d : dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   };
+
+  const gradId = `lc-grad-${color.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <svg
@@ -232,7 +236,7 @@ export const LineChart: React.FC<{
         const y = PADT + (H - PADT - PADB) * f;
         return (
           <g key={f}>
-            <line x1={PADL} x2={W - 14} y1={y} y2={y} stroke="var(--border-subtle)" strokeWidth={1} strokeDasharray={f === 1 ? '0' : '3 4'} />
+            <line x1={PADL} x2={W - 14} y1={y} y2={y} stroke="#E1E8F0" strokeWidth={1} strokeDasharray={f === 1 ? '0' : '3 4'} />
             <text x={PADL - 6} y={y + 3.5} textAnchor="end" fontSize={9} fill={TEXT_MUTED} fontFamily="var(--font-mono)">
               {Math.round(maxY * (1 - f))}
             </text>
@@ -241,15 +245,15 @@ export const LineChart: React.FC<{
       })}
 
       <defs>
-        <linearGradient id={`lc-grad-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={fillFrom} />
-          <stop offset="100%" stopColor="rgba(255,170,36,0)" />
+          <stop offset="100%" stopColor="rgba(54, 149, 245, 0)" />
         </linearGradient>
       </defs>
-      <path d={areaD} fill={`url(#lc-grad-${color.slice(1)})`} />
-      <path d={pathD} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+      <path d={areaD} fill={`url(#${gradId})`} />
+      <path d={pathD} fill="none" stroke={color} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round" />
 
-      {/* x labels: first, middle, last */}
+      {/* x labels */}
       {[0, Math.floor((points.length - 1) / 2), points.length - 1].map((idx, k) => (
         <text
           key={k}
@@ -267,8 +271,8 @@ export const LineChart: React.FC<{
         <g key={i}>
           <circle
             cx={c.x} cy={c.y} r={hovered === i ? 4.5 : 2.6}
-            fill={hovered === i ? color : 'var(--bg-card)'}
-            stroke={color} strokeWidth={1.6}
+            fill={hovered === i ? color : '#FFFFFF'}
+            stroke={color} strokeWidth={1.8}
             style={{ transition: 'r 0.1s' }}
           />
           <rect
@@ -282,12 +286,12 @@ export const LineChart: React.FC<{
             <g pointerEvents="none">
               <rect
                 x={Math.min(Math.max(c.x - 46, 2), W - 96)} y={Math.max(c.y - 34, 2)}
-                width={92} height={24} rx={5}
-                fill="#1C2025" stroke="var(--border-medium)"
+                width={92} height={24} rx={6}
+                fill="#252A31" stroke="#3695F5" strokeWidth={1}
               />
               <text
                 x={Math.min(Math.max(c.x, 48), W - 50)} y={Math.max(c.y - 18, 18)}
-                textAnchor="middle" fontSize={10} fill="#F4F5F6" fontFamily="var(--font-mono)"
+                textAnchor="middle" fontSize={10} fill="#FFFFFF" fontFamily="var(--font-mono)" fontWeight={600}
               >
                 {fmtLabel(c.p.date)} · {c.p.value}{unit}
               </text>
@@ -309,25 +313,303 @@ export const CompareBars: React.FC<{
   const max = maxHint ?? Math.max(...data.map((d) => d.value), 1);
   if (data.length === 0) return null;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {data.map((d, i) => (
         <div key={i}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: 4 }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }} title={d.label}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 5 }}>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }} title={d.label}>
               {d.label}
             </span>
-            <span className="mono" style={{ color: d.color || AMBER, fontWeight: 700 }}>
+            <span className="mono" style={{ color: d.color || BLUE, fontWeight: 700 }}>
               {Number.isFinite(d.value) ? d.value.toLocaleString() : '—'}{unit}
             </span>
           </div>
-          <div className="progress-track" style={{ height: 7 }}>
+          <div className="progress-track" style={{ height: 8 }}>
             <div
               className="progress-fill"
-              style={{ width: `${Math.max(0, Math.min(100, (d.value / max) * 100))}%`, background: d.color || AMBER }}
+              style={{ width: `${Math.max(0, Math.min(100, (d.value / max) * 100))}%`, background: d.color || BLUE }}
             />
           </div>
         </div>
       ))}
+    </div>
+  );
+};
+
+/* ── Monthly Investigations Bar Chart (12 Months, Real Data, Academic Blue) ── */
+
+export const MonthlyInvestigationsChart: React.FC<{
+  data: MonthlyInvestigation[];
+  height?: number;
+  year?: number;
+}> = ({ data, height = 195, year }) => {
+  const [hovered, setHovered] = useState<number | null>(null);
+
+  // Fallback to all 12 zero-month items if data is missing or incomplete
+  const monthData = useMemo(() => {
+    if (data && data.length === 12) return data;
+    const names = [
+      ['Jan', 'January', 1], ['Feb', 'February', 2], ['Mar', 'March', 3],
+      ['Apr', 'April', 4], ['May', 'May', 5], ['Jun', 'June', 6],
+      ['Jul', 'July', 7], ['Aug', 'August', 8], ['Sep', 'September', 9],
+      ['Oct', 'October', 10], ['Nov', 'November', 11], ['Dec', 'December', 12]
+    ] as const;
+    const y = year || new Date().getFullYear();
+    const map = new Map((data || []).map((d) => [d.month_num, d]));
+    return names.map(([shortM, fullM, num]) => {
+      const existing = map.get(num);
+      return existing || {
+        month: shortM,
+        month_full: fullM,
+        month_num: num,
+        year: y,
+        count: 0,
+      };
+    });
+  }, [data, year]);
+
+  const total = useMemo(() => monthData.reduce((s, d) => s + d.count, 0), [monthData]);
+  const maxCount = useMemo(() => Math.max(...monthData.map((d) => d.count), 0), [monthData]);
+
+  // Current calendar month detection for subtle highlight
+  const now = new Date();
+  const currentMonthNum = now.getMonth() + 1;
+  const currentYearVal = now.getFullYear();
+
+  // SVG Geometry
+  const W = 520;
+  const H = height;
+  const PADL = 32;
+  const PADR = 12;
+  const PADT = 22;
+  const PADB = 28;
+  const innerW = W - PADL - PADR;
+  const innerH = H - PADT - PADB;
+  const baselineY = PADT + innerH;
+
+  // Clean integer tick marks
+  const { ceiling, ticks } = useMemo(() => {
+    let step = 1;
+    if (maxCount > 20) step = Math.ceil(maxCount / 4 / 5) * 5;
+    else if (maxCount > 10) step = 5;
+    else if (maxCount > 4) step = 2;
+    else step = 1;
+
+    const tickCount = Math.max(4, Math.ceil(Math.max(maxCount, 1) / step));
+    const maxTick = tickCount * step;
+    const t: number[] = [];
+    for (let v = 0; v <= maxTick; v += step) {
+      t.push(v);
+    }
+    return { ceiling: maxTick, ticks: t };
+  }, [maxCount]);
+
+  const slotW = innerW / 12;
+  const barW = Math.max(16, Math.min(22, slotW * 0.58));
+
+  return (
+    <div style={{ position: 'relative', width: '100%', userSelect: 'none' }}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: '100%', height: 'auto', display: 'block' }}
+        role="img"
+        aria-label="Monthly Investigations Bar Chart"
+        onMouseLeave={() => setHovered(null)}
+      >
+        {/* Horizontal subtle grid lines & integer Y-axis ticks */}
+        {ticks.map((t) => {
+          const y = baselineY - (t / ceiling) * innerH;
+          return (
+            <g key={t}>
+              <line
+                x1={PADL}
+                x2={W - PADR}
+                y1={y}
+                y2={y}
+                stroke="#E1E8F0"
+                strokeWidth={1}
+                strokeDasharray={t === 0 ? undefined : '3 3'}
+              />
+              <text
+                x={PADL - 7}
+                y={y + 3.5}
+                textAnchor="end"
+                fontSize={9.5}
+                fill="#8A95A5"
+                fontFamily="var(--font-mono)"
+                fontWeight={500}
+              >
+                {t}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* 12 Monthly Bars and X-Axis Labels */}
+        {monthData.map((d, i) => {
+          const cx = PADL + (i + 0.5) * slotW;
+          const bx = cx - barW / 2;
+          const barH = (d.count / ceiling) * innerH;
+          const by = baselineY - barH;
+          const isCurrentMonth = d.year === currentYearVal && d.month_num === currentMonthNum;
+          const isHovered = hovered === i;
+
+          // Palette: Primary #3695F5, Current month highlighted with stronger #2563EB
+          const baseColor = isCurrentMonth ? '#2563EB' : '#3695F5';
+          const fillColor = isHovered ? (isCurrentMonth ? '#1D4ED8' : '#2563EB') : baseColor;
+
+          return (
+            <g key={d.month_num}>
+              {/* Invisible touch/hover target over the full slot height */}
+              <rect
+                x={cx - slotW / 2}
+                y={PADT}
+                width={slotW}
+                height={innerH + PADB}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHovered(i)}
+              />
+
+              {/* Baseline indicator for 0-count months */}
+              {d.count === 0 ? (
+                <rect
+                  x={bx + barW * 0.15}
+                  y={baselineY - 1.5}
+                  width={barW * 0.7}
+                  height={2}
+                  rx={1}
+                  fill={isHovered ? '#3695F5' : '#DCE8F6'}
+                  style={{ transition: 'fill 0.15s ease' }}
+                />
+              ) : (
+                /* Active vertical bar with rounded top */
+                <rect
+                  x={bx}
+                  y={by}
+                  width={barW}
+                  height={Math.max(barH, 3)}
+                  rx={3}
+                  ry={3}
+                  fill={fillColor}
+                  style={{
+                    transition: 'fill 0.15s ease, opacity 0.15s ease',
+                    opacity: hovered === null || isHovered ? 1 : 0.7,
+                  }}
+                />
+              )}
+
+              {/* Current month small top indicator dot if count > 0 */}
+              {isCurrentMonth && d.count > 0 && (
+                <circle
+                  cx={cx}
+                  cy={by - 5}
+                  r={2.2}
+                  fill="#2563EB"
+                />
+              )}
+
+              {/* Month label along X-axis */}
+              <text
+                x={cx}
+                y={baselineY + 16}
+                textAnchor="middle"
+                fontSize={10}
+                fontWeight={isCurrentMonth ? 700 : isHovered ? 600 : 500}
+                fill={isCurrentMonth ? '#252B35' : isHovered ? '#252B35' : '#8A95A5'}
+                fontFamily="var(--font-heading)"
+              >
+                {d.month}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Hover Tooltip (Smooth floating SVG group) */}
+        {hovered !== null && monthData[hovered] && (() => {
+          const d = monthData[hovered];
+          const cx = PADL + (hovered + 0.5) * slotW;
+          const barH = (d.count / ceiling) * innerH;
+          const by = d.count > 0 ? baselineY - barH : baselineY;
+          const isCurrentMonth = d.year === currentYearVal && d.month_num === currentMonthNum;
+
+          // Tooltip card dimensions
+          const tw = 120;
+          const th = 38;
+          // Clamp X to stay within SVG canvas
+          const tx = Math.min(Math.max(cx - tw / 2, PADL + 4), W - PADR - tw - 4);
+          const ty = Math.max(PADT - 4, by - th - 8);
+
+          return (
+            <g pointerEvents="none" style={{ transition: 'all 0.1s ease' }}>
+              {/* Tooltip background card */}
+              <rect
+                x={tx}
+                y={ty}
+                width={tw}
+                height={th}
+                rx={6}
+                fill="#252B35"
+                stroke="#3695F5"
+                strokeWidth={1}
+                filter="drop-shadow(0 4px 12px rgba(37,43,53,0.18))"
+              />
+              {/* Tooltip month header */}
+              <text
+                x={tx + tw / 2}
+                y={ty + 14}
+                textAnchor="middle"
+                fontSize={9.5}
+                fontWeight={600}
+                fill="#CBD5E1"
+                fontFamily="var(--font-heading)"
+              >
+                {d.month_full} {d.year} {isCurrentMonth ? '• Now' : ''}
+              </text>
+              {/* Tooltip count display */}
+              <text
+                x={tx + tw / 2}
+                y={ty + 28}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={700}
+                fill="#FFFFFF"
+                fontFamily="var(--font-mono)"
+              >
+                {d.count} {d.count === 1 ? 'investigation' : 'investigations'}
+              </text>
+            </g>
+          );
+        })()}
+      </svg>
+
+      {/* Empty State Overlay when year has zero total investigations */}
+      {total === 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '42%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid #E1E8F0',
+            borderRadius: '8px',
+            padding: '8px 16px',
+            textAlign: 'center',
+            boxShadow: '0 2px 10px rgba(37,43,53,0.06)',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#252B35' }}>
+            No investigations recorded this year yet.
+          </div>
+          <div style={{ fontSize: '0.72rem', color: '#8A95A5', marginTop: 2 }}>
+            All 12 calendar months are initialized and ready for research activity.
+          </div>
+        </div>
+      )}
     </div>
   );
 };

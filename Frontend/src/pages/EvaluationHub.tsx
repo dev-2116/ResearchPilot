@@ -30,10 +30,10 @@ const MODEL_LABELS: Record<string, string> = {
 };
 
 const MODEL_COLORS: Record<string, string> = {
-  standard_llm: '#4A5058',
+  researchpilot: '#3695F5',
+  agentic_rag: '#252A31',
   basic_rag: '#60A5FA',
-  agentic_rag: '#A78BFA',
-  researchpilot: '#34D399',
+  standard_llm: '#8A95A5',
 };
 
 const PCT_METRICS = [

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
@@ -89,10 +90,23 @@ def get_run_evidence(run_id: str):
     return [ClaimResponse(**c) for c in claims]
 
 @router.post("/runs/{run_id}/approve")
-def approve_gated_run(run_id: str):
-    success = orchestrator.approve_gated_run(run_id)
-    if not success:
+def approve_gated_run(run_id: str, background_tasks: BackgroundTasks):
+    run = DB.get_run(run_id)
+    if not run or run["status"] != "WAITING_APPROVAL":
         raise HTTPException(status_code=400, detail="Cannot approve run. Ensure it exists and is in WAITING_APPROVAL state.")
+    
+    task = DB.get_task(run["task_id"])
+    exp = DB.get_run_experiment(run_id)
+    claims = DB.get_run_claims(run_id)
+    if not task or not exp:
+        raise HTTPException(status_code=400, detail="Missing task or experiment records for run.")
+    
+    background_tasks.add_task(
+        orchestrator._run_execution_steps,
+        run_id=run_id, task_id=run["task_id"], question=task["question"],
+        exp_id=exp["id"], code=exp["code"], variables=exp["variables"],
+        verified_claims=claims
+    )
     return {"status": "APPROVED", "message": f"Run {run_id} approved for experiment execution."}
 
 # --- Experiments ---
@@ -291,6 +305,20 @@ def get_dashboard_stats():
     # report the REAL active corpus size instead of the unused DB table.
     stats["corpus_active"] = len(hybrid_retriever.papers)
     return stats
+
+@router.get("/stats/monthly-investigations")
+def get_monthly_investigations(year: Optional[int] = Query(None, description="Calendar year for monthly aggregation")):
+    """
+    Returns monthly investigation counts for all 12 calendar months of the given year.
+    Defaults to the current calendar year. Real database counts only.
+    """
+    selected_year = year or datetime.utcnow().year
+    data = DB.get_monthly_investigations(selected_year)
+    return {
+        "year": selected_year,
+        "total": sum(item["count"] for item in data),
+        "data": data,
+    }
 
 @router.get("/history")
 def get_history():

@@ -693,6 +693,53 @@ class DB:
             out.append(entry)
         return out
 
+    @staticmethod
+    def get_monthly_investigations(year: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Aggregate actual research tasks created in each calendar month for the specified year.
+        Uses authoritative created_at timestamps. Returns 12 records (Jan through Dec).
+        Months with 0 investigations are included with count 0.
+        """
+        if year is None:
+            year = datetime.utcnow().year
+
+        conn = get_connection()
+        year_str = str(year)
+        rows = conn.execute(
+            """SELECT CAST(substr(created_at, 6, 2) AS INTEGER) AS m, COUNT(*) AS cnt
+               FROM research_tasks
+               WHERE substr(created_at, 1, 4) = ?
+               GROUP BY m""",
+            (year_str,)
+        ).fetchall()
+        conn.close()
+
+        counts = {int(r["m"]): int(r["cnt"]) for r in rows if r["m"] is not None}
+        month_defs = [
+            ("Jan", "January", 1),
+            ("Feb", "February", 2),
+            ("Mar", "March", 3),
+            ("Apr", "April", 4),
+            ("May", "May", 5),
+            ("Jun", "June", 6),
+            ("Jul", "July", 7),
+            ("Aug", "August", 8),
+            ("Sep", "September", 9),
+            ("Oct", "October", 10),
+            ("Nov", "November", 11),
+            ("Dec", "December", 12),
+        ]
+        return [
+            {
+                "month": short_m,
+                "month_full": full_m,
+                "month_num": m_num,
+                "year": year,
+                "count": counts.get(m_num, 0),
+            }
+            for short_m, full_m, m_num in month_defs
+        ]
+
     # ── Aggregated statistics (real data for the dashboard) ──────────────────
 
     @staticmethod
@@ -702,6 +749,9 @@ class DB:
         def scalar(sql: str, params: tuple = ()) -> int:
             row = conn.execute(sql, params).fetchone()
             return row[0] if row else 0
+
+        current_year = datetime.utcnow().year
+        monthly_investigations = DB.get_monthly_investigations(current_year)
 
         stats: Dict[str, Any] = {
             "tasks_total": scalar("SELECT COUNT(*) FROM research_tasks"),
@@ -730,6 +780,8 @@ class DB:
             "chunks_total": scalar("SELECT COUNT(*) FROM chunks"),
             "benchmark_runs_total": scalar("SELECT COUNT(*) FROM benchmark_runs"),
             "saved_papers_total": scalar("SELECT COUNT(*) FROM saved_papers"),
+            "monthly_investigations": monthly_investigations,
+            "investigations_year": current_year,
             "task_status_distribution": [
                 {"status": r["status"], "count": r["cnt"]}
                 for r in conn.execute(

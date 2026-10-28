@@ -90,12 +90,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="sidebar no-print" aria-label="Primary navigation">
       <div className="sidebar-logo">
         <div className="logo-icon">
-          <Cpu size={21} color="#131007" />
+          <Cpu size={20} color="#FFFFFF" />
         </div>
         <div>
           <h1>ResearchPilot</h1>
-          <p style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: 600, letterSpacing: '0.02em' }}>
-            Evidence-Verified Research Agent
+          <p style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.02em', marginTop: 1 }}>
+            Academic Research Agent
           </p>
         </div>
       </div>
@@ -113,18 +113,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="sidebar-footer">
         <div className="sidebar-protocol">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <ShieldCheck size={15} color="var(--accent-emerald)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 5 }}>
+            <ShieldCheck size={15} color="var(--accent-primary)" />
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-primary)' }}>
               Evidence-First Protocol
             </span>
           </div>
-          <p style={{ fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            Claims are verified against retrieved passages with NLI heuristics before synthesis. Scores are decision aids, not calibrated probabilities.
+          <p style={{ fontSize: 10.5, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+            Claims verified against retrieved passages with NLI heuristics prior to synthesis.
           </p>
         </div>
         <div className="sidebar-status-row">
-          <span style={{ fontWeight: 600 }}>ResearchPilot v1.0</span>
+          <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>ResearchPilot v1.0</span>
           <span style={{ color: 'var(--accent-emerald)', fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
             <span className="status-dot ok" /> Ready
           </span>
